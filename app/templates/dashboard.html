@@ -83,6 +83,40 @@
     </div>
 </div>
 
+<!-- Gráficos del Dashboard -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-3">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Tendencia de Transacciones</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="transaccionesChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 mb-3">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Por Servicio</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="serviciosChart" height="260"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 mb-3">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Clientes Nuevos</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="clientesChart" height="260"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-lg-8">
         <div class="card shadow mb-4">
@@ -180,12 +214,14 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
+                    {% if current_user.is_admin %}
                     <a href="{{ url_for('data_mgmt.index') }}" class="btn btn-outline-primary">
                         <i class="fas fa-file-export me-1"></i> Exportar Datos
                     </a>
                     <a href="{{ url_for('data_mgmt.importar') }}" class="btn btn-outline-success">
                         <i class="fas fa-file-import me-1"></i> Importar Clientes
                     </a>
+                    {% endif %}
                     <a href="{{ url_for('calculadora.index') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-calculator me-1"></i> Calculadora
                     </a>
@@ -242,4 +278,76 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const mesesLabels = {{ meses_labels | tojson }};
+const transaccionesData = {{ transacciones_por_mes | tojson }};
+const serviciosLabels = {{ servicios_chart_labels | tojson }};
+const serviciosData = {{ servicios_chart_values | tojson }};
+const clientesNuevos = {{ clientes_nuevos | tojson }};
+
+// Gráfico de transacciones por mes
+new Chart(document.getElementById('transaccionesChart'), {
+    type: 'line',
+    data: {
+        labels: mesesLabels,
+        datasets: [{
+            label: 'Transacciones',
+            data: transaccionesData,
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+});
+
+// Gráfico de transacciones por servicio
+new Chart(document.getElementById('serviciosChart'), {
+    type: 'doughnut',
+    data: {
+        labels: serviciosLabels,
+        datasets: [{
+            data: serviciosData,
+            backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1', '#0dcaf0', '#fd7e14']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+        }
+    }
+});
+
+// Gráfico de clientes nuevos
+new Chart(document.getElementById('clientesChart'), {
+    type: 'bar',
+    data: {
+        labels: mesesLabels,
+        datasets: [{
+            label: 'Clientes nuevos',
+            data: clientesNuevos,
+            backgroundColor: 'rgba(25, 135, 84, 0.7)',
+            borderColor: '#198754',
+            borderWidth: 1,
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+});
+</script>
 {% endblock %}

@@ -8,9 +8,11 @@
         <h1><i class="fas fa-exchange-alt me-2"></i>Servicios de Transferencia</h1>
     </div>
     <div class="col-md-6 text-end">
+        {% if current_user.is_admin %}
         <a href="{{ url_for('servicios.nuevo') }}" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Nuevo Servicio
         </a>
+        {% endif %}
     </div>
 </div>
 
@@ -34,9 +36,10 @@
                         {% for servicio in servicios %}
                         <tr>
                             <td>{{ servicio.id }}</td>
-                            <td>{{ servicio.nombre }}</td>
+                            <td>{{ servicio.nombre }} {% if not servicio.activo %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</td>
                             <td>{{ servicio.comision_porcentaje }}%</td>
                             <td>
+                                {% if current_user.is_admin %}
                                 <a href="{{ url_for('servicios.editar', servicio_id=servicio.id) }}" class="btn btn-sm btn-warning">
                                     <i class="fas fa-edit"></i>
                                 </a>
@@ -62,6 +65,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}

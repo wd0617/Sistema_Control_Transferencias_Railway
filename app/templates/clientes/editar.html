@@ -21,6 +21,7 @@
     </div>
     <div class="card-body">
         <form method="POST" action="{{ url_for('clientes.editar', cliente_id=cliente.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- Información básica -->
             <div class="row mb-4">
                 <div class="col-12">

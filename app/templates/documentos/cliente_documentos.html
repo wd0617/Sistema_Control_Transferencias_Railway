@@ -202,10 +202,12 @@
                                     class="btn btn-outline-primary" title="Editar">
                                     <i class="fas fa-edit"></i> Editar
                                 </a>
+                                {% if current_user.is_admin %}
                                 <button type="button" class="btn btn-outline-danger"
                                     onclick="confirmarEliminacion({{ doc.id }})" title="Eliminar">
                                     <i class="fas fa-trash"></i>
                                 </button>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

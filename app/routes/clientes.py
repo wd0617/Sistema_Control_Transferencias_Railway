@@ -12,8 +12,12 @@ clientes = Blueprint('clientes', __name__)
 @clientes.route('/')
 @login_required
 def lista():
-    clientes_list = Cliente.query.order_by(Cliente.ultima_visita.desc()).all()
-    return render_template('clientes/lista.html', clientes=clientes_list, now=datetime.now())
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    pagination = Cliente.query.order_by(Cliente.ultima_visita.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    return render_template('clientes/lista.html', clientes=pagination.items, pagination=pagination, now=datetime.now())
 
 @clientes.route('/search')
 @login_required

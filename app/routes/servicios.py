@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
+from app.decorators import admin_required
 from app.models.cliente import Servicio
 from app import db
 from datetime import datetime
@@ -14,6 +15,7 @@ def lista():
 
 @servicios.route('/nuevo', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def nuevo():
     if request.method == 'POST':
         nombre = request.form.get('nombre')
@@ -44,6 +46,7 @@ def nuevo():
 
 @servicios.route('/editar/<int:servicio_id>', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def editar(servicio_id):
     servicio = Servicio.query.get_or_404(servicio_id)
     
@@ -71,19 +74,16 @@ def editar(servicio_id):
     
     return render_template('servicios/editar.html', servicio=servicio, now=datetime.now())
 
-@servicios.route('/eliminar/<int:servicio_id>')
+@servicios.route('/eliminar/<int:servicio_id>', methods=['POST'])
 @login_required
+@admin_required
 def eliminar(servicio_id):
     servicio = Servicio.query.get_or_404(servicio_id)
     
-    # Verificar si hay transacciones asociadas
-    # Esta línea se puede implementar cuando exista la relación entre Servicio y Transacción
-    # if servicio.transacciones.count() > 0:
-    #     flash('No se puede eliminar un servicio con transacciones asociadas', 'danger')
-    #     return redirect(url_for('servicios.lista'))
-    
-    db.session.delete(servicio)
+    # Soft delete: marcar como inactivo en lugar de borrar físicamente
+    # Esto preserva el historial de transacciones asociadas
+    servicio.activo = False
     db.session.commit()
     
-    flash('Servicio eliminado correctamente', 'success')
+    flash('Servicio desactivado correctamente', 'success')
     return redirect(url_for('servicios.lista'))

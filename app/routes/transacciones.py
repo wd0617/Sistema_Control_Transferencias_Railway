@@ -165,7 +165,7 @@ def nueva():
     
     # GET: Mostrar formulario
     clientes = Cliente.query.all()
-    servicios = Servicio.query.all()
+    servicios = Servicio.query.filter_by(activo=True).all()
     
     # Si hay un cliente preseleccionado, calculamos su saldo disponible
     saldo_disponible = None
@@ -226,7 +226,7 @@ def editar(transaccion_id):
         return redirect(url_for('transacciones.cliente_historial', cliente_id=transaccion.cliente_id))
     
     # GET: Mostrar formulario con datos de la transacción
-    servicios = Servicio.query.all()
+    servicios = Servicio.query.filter_by(activo=True).all()
     
     return render_template('transacciones/editar.html', 
                           transaccion=transaccion,

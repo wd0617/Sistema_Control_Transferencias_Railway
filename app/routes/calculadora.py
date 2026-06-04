@@ -8,7 +8,7 @@ calculadora = Blueprint('calculadora', __name__)
 @calculadora.route('/')
 @login_required
 def index():
-    servicios = Servicio.query.all()
+    servicios = Servicio.query.filter_by(activo=True).all()
     return render_template('calculadora/index.html', servicios=servicios, now=datetime.now())
 
 @calculadora.route('/calcular', methods=['POST'])

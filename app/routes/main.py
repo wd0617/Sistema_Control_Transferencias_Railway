@@ -5,6 +5,7 @@ from app.models.cliente import Cliente, Servicio
 from app.models.transaccion import Transaccion
 from sqlalchemy import func, and_
 from app.extensions import db
+from app.utils.notificaciones import generar_notificaciones, contar_notificaciones_pendientes
 
 main = Blueprint('main', __name__)
 
@@ -28,6 +29,9 @@ def index():
 @main.route('/dashboard')
 @login_required
 def dashboard():
+    # Generar notificaciones automáticas
+    generar_notificaciones()
+    
     # Obtener conteo total de clientes
     clientes_count = Cliente.query.count()
     
@@ -88,8 +92,50 @@ def dashboard():
         docs_vencidos = 0
         docs_por_vencer = 0
     
-    # En una versión futura, se pueden implementar notificaciones
-    notificaciones = []
+    # Datos para gráficos
+    # 1. Transacciones por mes (últimos 6 meses)
+    meses_labels = []
+    transacciones_por_mes = []
+    for i in range(5, -1, -1):
+        mes_date = datetime.now() - timedelta(days=30*i)
+        mes_inicio = datetime(mes_date.year, mes_date.month, 1)
+        if mes_date.month == 12:
+            mes_fin = datetime(mes_date.year + 1, 1, 1)
+        else:
+            mes_fin = datetime(mes_date.year, mes_date.month + 1, 1)
+        
+        count = Transaccion.query.filter(
+            Transaccion.fecha >= mes_inicio,
+            Transaccion.fecha < mes_fin
+        ).count()
+        meses_labels.append(mes_date.strftime('%b %Y'))
+        transacciones_por_mes.append(count)
+    
+    # 2. Transacciones por servicio
+    servicios_data = db.session.query(
+        Servicio.nombre,
+        func.count(Transaccion.id).label('total')
+    ).outerjoin(Transaccion).filter(
+        Servicio.activo == True
+    ).group_by(Servicio.id).all()
+    servicios_chart_labels = [s[0] for s in servicios_data]
+    servicios_chart_values = [s[1] for s in servicios_data]
+    
+    # 3. Clientes nuevos por mes (últimos 6 meses)
+    clientes_nuevos = []
+    for i in range(5, -1, -1):
+        mes_date = datetime.now() - timedelta(days=30*i)
+        mes_inicio = datetime(mes_date.year, mes_date.month, 1)
+        if mes_date.month == 12:
+            mes_fin = datetime(mes_date.year + 1, 1, 1)
+        else:
+            mes_fin = datetime(mes_date.year, mes_date.month + 1, 1)
+        
+        count = Cliente.query.filter(
+            Cliente.fecha_registro >= mes_inicio,
+            Cliente.fecha_registro < mes_fin
+        ).count()
+        clientes_nuevos.append(count)
     
     return render_template('dashboard.html', 
                           now=datetime.now(),
@@ -99,7 +145,11 @@ def dashboard():
                           clientes_recientes=clientes_recientes,
                           saldos=saldos,
                           servicios=servicios,
-                          notificaciones=notificaciones,
                           docs_vencidos=docs_vencidos,
-                          docs_por_vencer=docs_por_vencer)
+                          docs_por_vencer=docs_por_vencer,
+                          meses_labels=meses_labels,
+                          transacciones_por_mes=transacciones_por_mes,
+                          servicios_chart_labels=servicios_chart_labels,
+                          servicios_chart_values=servicios_chart_values,
+                          clientes_nuevos=clientes_nuevos)
 

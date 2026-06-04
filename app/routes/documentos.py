@@ -2,6 +2,7 @@ import os
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
+from app.decorators import admin_required
 from app.models.cliente import Cliente
 from app.models.documento import DocumentoCliente
 from app.extensions import db
@@ -239,6 +240,7 @@ def editar(documento_id):
 
 @documentos.route('/eliminar/<int:documento_id>', methods=['POST'])
 @login_required
+@admin_required
 def eliminar(documento_id):
     """Elimina un documento."""
     doc = DocumentoCliente.query.get_or_404(documento_id)

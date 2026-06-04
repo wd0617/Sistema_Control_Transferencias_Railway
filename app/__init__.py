@@ -1,7 +1,7 @@
 import os
 from flask import Flask
 from config import Config
-from app.extensions import db, login_manager, migrate
+from app.extensions import db, login_manager, migrate, csrf
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -17,6 +17,10 @@ def create_app(config_class=Config):
     login_manager.login_message_category = 'info'
     login_manager.init_app(app)
     migrate.init_app(app, db)
+    csrf.init_app(app)
+    
+    # Excluir endpoint AJAX de calculadora del CSRF (se maneja por separado)
+    csrf.exempt('app.routes.calculadora.calculadora')
     
     # Registrar blueprints
     from app.routes.auth import auth as auth_blueprint
@@ -27,6 +31,7 @@ def create_app(config_class=Config):
     from app.routes.calculadora import calculadora as calculadora_blueprint
     from app.routes.documentos import documentos as documentos_blueprint
     from app.routes.data_management import data_mgmt as data_mgmt_blueprint
+    from app.routes.notificaciones import notificaciones as notificaciones_blueprint
     
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
@@ -36,10 +41,20 @@ def create_app(config_class=Config):
     app.register_blueprint(calculadora_blueprint, url_prefix='/calculadora')
     app.register_blueprint(documentos_blueprint, url_prefix='/documentos')
     app.register_blueprint(data_mgmt_blueprint, url_prefix='/datos')
+    app.register_blueprint(notificaciones_blueprint, url_prefix='/notificaciones')
     
     # Crear la base de datos si no existe
     with app.app_context():
         db.create_all()
+    
+    # Inyectar contador de notificaciones en todos los templates
+    @app.context_processor
+    def inject_notificaciones():
+        from app.utils.notificaciones import contar_notificaciones_pendientes
+        from flask_login import current_user
+        if current_user.is_authenticated:
+            return {'notificaciones_count': contar_notificaciones_pendientes()}
+        return {'notificaciones_count': 0}
     
     return app
 
