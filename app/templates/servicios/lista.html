@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Servicios - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1><i class="fas fa-exchange-alt me-2"></i>Servicios de Transferencia</h1>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('servicios.nuevo') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Nuevo Servicio
+        </a>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Lista de Servicios</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Comisión</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if servicios %}
+                        {% for servicio in servicios %}
+                        <tr>
+                            <td>{{ servicio.id }}</td>
+                            <td>{{ servicio.nombre }}</td>
+                            <td>{{ servicio.comision_porcentaje }}%</td>
+                            <td>
+                                <a href="{{ url_for('servicios.editar', servicio_id=servicio.id) }}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="#" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ servicio.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                
+                                <!-- Modal de confirmación para eliminar -->
+                                <div class="modal fade" id="deleteModal{{ servicio.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ servicio.id }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="deleteModalLabel{{ servicio.id }}">Confirmar eliminación</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                ¿Estás seguro de que deseas eliminar el servicio <strong>{{ servicio.nombre }}</strong>?
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <a href="{{ url_for('servicios.eliminar', servicio_id=servicio.id) }}" class="btn btn-danger">Eliminar</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center">No hay servicios registrados</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

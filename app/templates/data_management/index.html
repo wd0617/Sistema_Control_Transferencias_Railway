@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Datos - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-database me-2"></i>Gestión de Datos</h1>
+        <p class="text-muted">Importación y exportación de información del sistema</p>
+    </div>
+</div>
+
+<!-- Tarjetas de estadísticas -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                <h3>{{ total_clientes }}</h3>
+                <p class="text-muted">Clientes Registrados</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <i class="fas fa-exchange-alt fa-3x text-success mb-3"></i>
+                <h3>{{ total_transacciones }}</h3>
+                <p class="text-muted">Transacciones Totales</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sección de Exportación -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-file-export me-2"></i>Exportar Datos</h5>
+            </div>
+            <div class="card-body">
+                <p>Descargue la información del sistema en diferentes formatos:</p>
+
+                <div class="row">
+                    <!-- Exportar Clientes -->
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="fas fa-users me-2 text-primary"></i>Clientes</h6>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('data_mgmt.exportar_clientes_csv') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-file-csv me-1"></i> Exportar a CSV
+                            </a>
+                            <a href="{{ url_for('data_mgmt.exportar_clientes_excel') }}"
+                                class="btn btn-outline-success">
+                                <i class="fas fa-file-excel me-1"></i> Exportar a Excel
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Exportar Transacciones -->
+                    <div class="col-md-6 mb-3">
+                        <h6><i class="fas fa-exchange-alt me-2 text-success"></i>Transacciones</h6>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('data_mgmt.exportar_transacciones_csv') }}"
+                                class="btn btn-outline-primary">
+                                <i class="fas fa-file-csv me-1"></i> Exportar a CSV
+                            </a>
+                            <a href="{{ url_for('data_mgmt.exportar_transacciones_excel') }}"
+                                class="btn btn-outline-success">
+                                <i class="fas fa-file-excel me-1"></i> Exportar a Excel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sección de Importación -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-file-import me-2"></i>Importar Datos</h5>
+            </div>
+            <div class="card-body">
+                <p>Importe clientes desde archivos CSV:</p>
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Nota:</strong> Los archivos CSV deben tener el formato correcto.
+                            Descargue la plantilla de ejemplo para conocer la estructura requerida.
+                        </div>
+
+                        <a href="{{ url_for('data_mgmt.importar') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-upload me-1"></i> Importar Clientes desde CSV
+                        </a>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="fas fa-download fa-2x text-secondary mb-2"></i>
+                                <h6>Plantilla CSV</h6>
+                                <p class="small text-muted">Descargue una plantilla de ejemplo</p>
+                                <a href="{{ url_for('data_mgmt.descargar_plantilla_clientes') }}"
+                                    class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-download me-1"></i> Descargar Plantilla
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Información adicional -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-body">
+                <h6 class="card-title text-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Información Importante
+                </h6>
+                <ul class="small mb-0">
+                    <li>Las exportaciones incluyen todos los registros del sistema</li>
+                    <li>Los archivos CSV están codificados en UTF-8</li>
+                    <li>Al importar, los clientes duplicados (mismo documento) serán identificados y no se importarán
+                    </li>
+                    <li>Antes de importar, revise el resumen de validación para corregir posibles errores</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

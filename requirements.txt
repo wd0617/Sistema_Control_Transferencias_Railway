@@ -1,0 +1,31 @@
+# Flask y extensiones
+Flask>=2.3.0
+Flask-SQLAlchemy>=3.1.0
+Flask-Login>=0.6.2
+Flask-WTF>=1.1.1
+Flask-Migrate>=4.0.4
+
+# Core dependencies
+Werkzeug>=2.3.7
+SQLAlchemy>=2.0.0
+
+# Utilidades
+Pillow>=10.0.0
+pytz>=2023.3
+python-dateutil>=2.8.2
+email-validator>=2.0.0
+
+# Base de datos
+PyMySQL>=1.1.0
+psycopg2-binary>=2.9.0
+
+# Servidor WSGI
+gunicorn>=21.2.0
+
+# Variables de entorno
+python-dotenv>=1.0.0
+
+# Exportación (opcional - si fallan, el sistema usará CSV)
+pandas>=2.0.0
+openpyxl>=3.1.0
+reportlab>=4.0.0

@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Nuevo Documento - {{ cliente.nombre_completo() }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('clientes.lista') }}">Clientes</a></li>
+                <li class="breadcrumb-item"><a
+                        href="{{ url_for('documentos.documentos_cliente', cliente_id=cliente.id) }}">{{
+                        cliente.nombre_completo() }}</a></li>
+                <li class="breadcrumb-item active">Nuevo Documento</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-plus-circle me-2"></i>Registrar Nuevo Documento</h1>
+        <p class="text-muted">Cliente: <strong>{{ cliente.nombre_completo() }}</strong></p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row">
+                        <!-- Tipo de documento -->
+                        <div class="col-md-6 mb-3">
+                            <label for="tipo_documento" class="form-label">Tipo de Documento *</label>
+                            <select class="form-select" id="tipo_documento" name="tipo_documento" required>
+                                <option value="">Seleccione...</option>
+                                {% for codigo, nombre in tipos_documento %}
+                                <option value="{{ codigo }}">{{ nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Número de documento -->
+                        <div class="col-md-6 mb-3">
+                            <label for="numero_documento" class="form-label">Número de Documento *</label>
+                            <input type="text" class="form-control" id="numero_documento" name="numero_documento"
+                                placeholder="Ej: X1234567A" required>
+                        </div>
+
+                        <!-- País de emisión -->
+                        <div class="col-md-6 mb-3">
+                            <label for="pais_emision" class="form-label">País de Emisión</label>
+                            <input type="text" class="form-control" id="pais_emision" name="pais_emision" value="España"
+                                placeholder="País emisor del documento">
+                        </div>
+
+                        <!-- Documento principal -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label d-block">&nbsp;</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="es_documento_principal"
+                                    name="es_documento_principal">
+                                <label class="form-check-label" for="es_documento_principal">
+                                    <i class="fas fa-star text-warning me-1"></i>Documento Principal
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Fecha de emisión -->
+                        <div class="col-md-6 mb-3">
+                            <label for="fecha_emision" class="form-label">Fecha de Emisión</label>
+                            <input type="date" class="form-control" id="fecha_emision" name="fecha_emision">
+                        </div>
+
+                        <!-- Fecha de vencimiento -->
+                        <div class="col-md-6 mb-3">
+                            <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento *</label>
+                            <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento"
+                                required>
+                        </div>
+
+                        <!-- Foto anverso -->
+                        <div class="col-md-6 mb-3">
+                            <label for="foto_anverso" class="form-label">Foto Anverso (Frente)</label>
+                            <input type="file" class="form-control" id="foto_anverso" name="foto_anverso"
+                                accept="image/*,.pdf">
+                            <small class="text-muted">Formatos: JPG, PNG, GIF, PDF. Máx: 16MB</small>
+                        </div>
+
+                        <!-- Foto reverso -->
+                        <div class="col-md-6 mb-3">
+                            <label for="foto_reverso" class="form-label">Foto Reverso (Dorso)</label>
+                            <input type="file" class="form-control" id="foto_reverso" name="foto_reverso"
+                                accept="image/*,.pdf">
+                            <small class="text-muted">Formatos: JPG, PNG, GIF, PDF. Máx: 16MB</small>
+                        </div>
+
+                        <!-- Notas -->
+                        <div class="col-12 mb-3">
+                            <label for="notas" class="form-label">Notas Adicionales</label>
+                            <textarea class="form-control" id="notas" name="notas" rows="3"
+                                placeholder="Observaciones sobre el documento..."></textarea>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('documentos.documentos_cliente', cliente_id=cliente.id) }}"
+                            class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i> Guardar Documento
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card shadow-sm bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>Información</h5>
+                <hr>
+                <p class="small"><strong>Campos obligatorios:</strong></p>
+                <ul class="small">
+                    <li>Tipo de documento</li>
+                    <li>Número de documento</li>
+                    <li>Fecha de vencimiento</li>
+                </ul>
+                <hr>
+                <p class="small"><strong>Documento Principal:</strong></p>
+                <p class="small text-muted">
+                    Marque esta opción si es el documento principal de identificación del cliente.
+                    Solo puede haber un documento principal por cliente.
+                </p>
+                <hr>
+                <div class="alert alert-warning small mb-0">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Importante:</strong> Los documentos vencidos impedirán que el cliente
+                    realice nuevas transferencias hasta que se actualicen.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

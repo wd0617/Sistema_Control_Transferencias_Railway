@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row align-items-center justify-content-center min-vh-75">
+    <div class="col-md-6 text-center">
+        <div class="p-5">
+            <h1 class="display-4 mb-4">Sistema de Control de Transferencias Monetarias</h1>
+            <p class="lead mb-4">Gestiona de manera eficiente las transferencias de tus clientes con límites semanales y notificaciones automáticas.</p>
+            <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-sign-in-alt me-2"></i>Ingresar al Sistema
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

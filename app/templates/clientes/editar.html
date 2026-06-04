@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Cliente - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1><i class="fas fa-user-edit me-2"></i>Editar Cliente</h1>
+        <p class="text-muted">{{ cliente.nombre_completo() }}</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('clientes.lista') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver a Clientes
+        </a>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Formulario de Edición</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('clientes.editar', cliente_id=cliente.id) }}">
+            <!-- Información básica -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h5 class="border-bottom pb-2">Información Personal</h5>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="nombre" class="form-label">Nombre *</label>
+                    <input type="text" class="form-control" id="nombre" name="nombre" value="{{ cliente.nombre }}"
+                        required>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="apellido" class="form-label">Apellido *</label>
+                    <input type="text" class="form-control" id="apellido" name="apellido" value="{{ cliente.apellido }}"
+                        required>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="telefono" class="form-label">Teléfono *</label>
+                    <input type="tel" class="form-control" id="telefono" name="telefono" value="{{ cliente.telefono }}"
+                        required>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="fecha_nacimiento" class="form-label">Fecha de Nacimiento *</label>
+                    <input type="date" class="form-control" id="fecha_nacimiento" name="fecha_nacimiento"
+                        value="{{ cliente.fecha_nacimiento.strftime('%Y-%m-%d') }}" required>
+                </div>
+            </div>
+
+            <!-- Información del Documento -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h5 class="border-bottom pb-2">
+                        <i class="fas fa-id-card me-2"></i>Información del Documento
+                        {% if cliente.estado_documento == 'vencido' %}
+                        <span class="badge bg-danger ms-2"><i
+                                class="fas fa-exclamation-triangle me-1"></i>VENCIDO</span>
+                        {% elif cliente.estado_documento == 'por_vencer' %}
+                        <span class="badge bg-warning text-dark ms-2"><i class="fas fa-clock me-1"></i>Por Vencer ({{
+                            cliente.dias_hasta_vencimiento }} días)</span>
+                        {% elif cliente.estado_documento == 'vigente' %}
+                        <span class="badge bg-success ms-2"><i class="fas fa-check me-1"></i>Vigente</span>
+                        {% else %}
+                        <span class="badge bg-secondary ms-2">Sin fecha de vencimiento</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="tipo_documento" class="form-label">Tipo de Documento</label>
+                    <select class="form-select" id="tipo_documento" name="tipo_documento">
+                        <option value="NIE" {% if cliente.tipo_documento=='NIE' %}selected{% endif %}>NIE</option>
+                        <option value="DNI" {% if cliente.tipo_documento=='DNI' %}selected{% endif %}>DNI</option>
+                        <option value="PASAPORTE" {% if cliente.tipo_documento=='PASAPORTE' %}selected{% endif %}>
+                            Pasaporte</option>
+                        <option value="PERMISO_RESIDENCIA" {% if cliente.tipo_documento=='PERMISO_RESIDENCIA'
+                            %}selected{% endif %}>Permiso de Residencia</option>
+                        <option value="TARJETA_COMUNITARIA" {% if cliente.tipo_documento=='TARJETA_COMUNITARIA'
+                            %}selected{% endif %}>Tarjeta Comunitaria</option>
+                        <option value="OTRO" {% if cliente.tipo_documento=='OTRO' %}selected{% endif %}>Otro</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="documento" class="form-label">Número de Documento *</label>
+                    <input type="text" class="form-control" id="documento" name="documento"
+                        value="{{ cliente.documento }}" required>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="documento_fecha_emision" class="form-label">Fecha de Emisión</label>
+                    <input type="date" class="form-control" id="documento_fecha_emision" name="documento_fecha_emision"
+                        value="{{ cliente.documento_fecha_emision.strftime('%Y-%m-%d') if cliente.documento_fecha_emision else '' }}">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="documento_fecha_vencimiento" class="form-label">Fecha de Vencimiento *</label>
+                    <input type="date"
+                        class="form-control {% if cliente.estado_documento == 'vencido' %}is-invalid{% elif cliente.estado_documento == 'por_vencer' %}border-warning{% endif %}"
+                        id="documento_fecha_vencimiento" name="documento_fecha_vencimiento"
+                        value="{{ cliente.documento_fecha_vencimiento.strftime('%Y-%m-%d') if cliente.documento_fecha_vencimiento else '' }}">
+                    {% if cliente.estado_documento == 'vencido' %}
+                    <div class="invalid-feedback">
+                        El documento está vencido hace {{ cliente.dias_hasta_vencimiento|abs }} días.
+                    </div>
+                    {% elif cliente.estado_documento == 'por_vencer' %}
+                    <small class="text-warning">
+                        <i class="fas fa-exclamation-circle"></i> Vence en {{ cliente.dias_hasta_vencimiento }} días.
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Servicios -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h5 class="border-bottom pb-2">Servicios</h5>
+                </div>
+                <div class="col-md-12 mb-3">
+                    {% for servicio in servicios %}
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="servicio_{{ servicio.id }}" name="servicios"
+                            value="{{ servicio.id }}" {% if servicio in cliente.servicios %}checked{% endif %}>
+                        <label class="form-check-label" for="servicio_{{ servicio.id }}">{{ servicio.nombre }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>Los campos marcados con * son obligatorios.
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

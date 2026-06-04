@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Transacción - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <h1><i class="fas fa-edit me-2"></i>Editar Transacción</h1>
+        <p class="text-muted">Cliente: {{ transaccion.cliente.nombre_completo() }}</p>
+        <p class="text-muted">Fecha: {{ transaccion.fecha.strftime('%d/%m/%Y %H:%M') }}</p>
+    </div>
+    <div class="col-md-6 text-end">
+        <a href="{{ url_for('transacciones.lista') }}" class="btn btn-outline-secondary me-2">
+            <i class="fas fa-list me-2"></i>Lista de Transacciones
+        </a>
+        <a href="{{ url_for('transacciones.cliente_historial', cliente_id=transaccion.cliente_id) }}" class="btn btn-info">
+            <i class="fas fa-history me-2"></i>Ver Historial del Cliente
+        </a>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>Formulario de Edición</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('transacciones.editar', transaccion_id=transaccion.id) }}">
+            <div class="row mb-4">
+                <!-- Cliente (solo lectura) -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Cliente</label>
+                    <input type="text" class="form-control" value="{{ transaccion.cliente.nombre_completo() }} - {{ transaccion.cliente.documento }}" readonly>
+                </div>
+                
+                <!-- Servicio -->
+                <div class="col-md-6 mb-3">
+                    <label for="servicio_id" class="form-label">Servicio *</label>
+                    <select class="form-select" id="servicio_id" name="servicio_id" required>
+                        <option value="">Seleccione un servicio</option>
+                        {% for servicio in servicios %}
+                        <option value="{{ servicio.id }}" data-comision="{{ servicio.comision_porcentaje }}" {% if servicio.id == transaccion.servicio_id %}selected{% endif %}>
+                            {{ servicio.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Montos -->
+                <div class="col-md-4 mb-3">
+                    <label for="monto" class="form-label">Monto *</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" min="0" class="form-control" id="monto" name="monto" value="{{ transaccion.monto }}" required>
+                        <span class="input-group-text">€</span>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <label for="comision" class="form-label">Comisión</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" min="0" class="form-control" id="comision" name="comision" value="{{ transaccion.comision }}">
+                        <span class="input-group-text">€</span>
+                    </div>
+                </div>
+                
+                <!-- Notas -->
+                <div class="col-md-12 mb-3">
+                    <label for="descripcion" class="form-label">Notas</label>
+                    <textarea class="form-control" id="descripcion" name="descripcion" rows="2">{{ transaccion.notas }}</textarea>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Estás editando una transacción existente. Esta acción no afectará al histórico de transacciones ya registradas.
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end">
+                <a href="{{ url_for('transacciones.cliente_historial', cliente_id=transaccion.cliente_id) }}" class="btn btn-secondary me-2">Cancelar</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Calcular comisión automáticamente
+    document.addEventListener('DOMContentLoaded', function() {
+        const servicioSelect = document.getElementById('servicio_id');
+        const montoInput = document.getElementById('monto');
+        const comisionInput = document.getElementById('comision');
+        
+        function calcularComision() {
+            const servicio = servicioSelect.options[servicioSelect.selectedIndex];
+            if (servicio && servicio.value) {
+                const comisionPorcentaje = parseFloat(servicio.dataset.comision || 0);
+                const monto = parseFloat(montoInput.value || 0);
+                
+                if (!isNaN(monto) && !isNaN(comisionPorcentaje)) {
+                    const comisionCalculada = (monto * comisionPorcentaje / 100).toFixed(2);
+                    comisionInput.value = comisionCalculada;
+                }
+            }
+        }
+        
+        servicioSelect.addEventListener('change', calcularComision);
+        montoInput.addEventListener('input', calcularComision);
+    });
+</script>
+{% endblock %}

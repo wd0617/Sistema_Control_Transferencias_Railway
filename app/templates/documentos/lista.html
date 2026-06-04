@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="mb-0"><i class="fas fa-id-card me-2"></i>{{ titulo }}</h1>
+            <a href="{{ url_for('clientes.lista') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Clientes
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Estadísticas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-danger shadow">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ stats.vencidos }}</h3>
+                <small>Vencidos</small>
+            </div>
+            <a href="{{ url_for('documentos.lista', estado='vencidos') }}" class="card-footer text-white text-center">
+                <small>Ver todos <i class="fas fa-arrow-right"></i></small>
+            </a>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning shadow">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ stats.por_vencer }}</h3>
+                <small>Por Vencer</small>
+            </div>
+            <a href="{{ url_for('documentos.lista', estado='por_vencer') }}" class="card-footer text-dark text-center">
+                <small>Ver todos <i class="fas fa-arrow-right"></i></small>
+            </a>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success shadow">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ stats.vigentes }}</h3>
+                <small>Vigentes</small>
+            </div>
+            <a href="{{ url_for('documentos.lista', estado='todos') }}" class="card-footer text-white text-center">
+                <small>Ver todos <i class="fas fa-arrow-right"></i></small>
+            </a>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-primary shadow">
+            <div class="card-body text-center">
+                <h3 class="mb-0">{{ stats.total }}</h3>
+                <small>Total Documentos</small>
+            </div>
+            <a href="{{ url_for('documentos.alertas') }}" class="card-footer text-white text-center">
+                <small>Ver alertas <i class="fas fa-bell"></i></small>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('documentos.lista', estado='todos') }}" 
+               class="btn {% if estado_actual == 'todos' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Todos
+            </a>
+            <a href="{{ url_for('documentos.lista', estado='vencidos') }}" 
+               class="btn {% if estado_actual == 'vencidos' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                <i class="fas fa-exclamation-circle me-1"></i> Vencidos
+            </a>
+            <a href="{{ url_for('documentos.lista', estado='por_vencer') }}" 
+               class="btn {% if estado_actual == 'por_vencer' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+                <i class="fas fa-clock me-1"></i> Por Vencer
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de documentos -->
+<div class="card shadow">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Tipo</th>
+                        <th>Número</th>
+                        <th>Vencimiento</th>
+                        <th>Días Restantes</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if documentos %}
+                        {% for doc in documentos %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('documentos.documentos_cliente', cliente_id=doc.cliente_id) }}">
+                                    {{ doc.cliente.nombre_completo() }}
+                                </a>
+                                {% if doc.es_documento_principal %}
+                                <span class="badge bg-info ms-1" title="Documento Principal">
+                                    <i class="fas fa-star"></i>
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ doc.tipo_documento }}</td>
+                            <td>{{ doc.numero_documento }}</td>
+                            <td>{{ doc.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                {% set dias = doc.dias_hasta_vencimiento %}
+                                {% if dias < 0 %}
+                                    <span class="text-danger fw-bold">{{ dias|abs }} días vencido</span>
+                                {% elif dias == 0 %}
+                                    <span class="text-danger fw-bold">Vence hoy</span>
+                                {% elif dias <= 30 %}
+                                    <span class="text-warning fw-bold">{{ dias }} días</span>
+                                {% else %}
+                                    <span class="text-success">{{ dias }} días</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if doc.estado == 'vencido' %}
+                                    <span class="badge bg-danger">Vencido</span>
+                                {% elif doc.estado == 'por_vencer' %}
+                                    <span class="badge bg-warning text-dark">Por Vencer</span>
+                                {% else %}
+                                    <span class="badge bg-success">Vigente</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('documentos.editar', documento_id=doc.id) }}" 
+                                       class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{{ url_for('transacciones.cliente_historial', cliente_id=doc.cliente_id) }}" 
+                                       class="btn btn-outline-info" title="Ver Cliente">
+                                        <i class="fas fa-user"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                <i class="fas fa-folder-open fa-2x mb-2"></i>
+                                <p>No hay documentos en esta categoría</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

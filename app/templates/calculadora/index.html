@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Calculadora - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-calculator me-2"></i>Calculadora de Comisiones</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Cálculo de Comisión</h5>
+            </div>
+            <div class="card-body">
+                <form id="calculadoraForm">
+                    <div class="mb-3">
+                        <label for="monto" class="form-label">Monto de Transferencia (€)</label>
+                        <input type="number" class="form-control" id="monto" name="monto" step="0.01" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="servicio_id" class="form-label">Servicio</label>
+                        <select class="form-select" id="servicio_id" name="servicio_id" required>
+                            <option value="">-- Seleccione un servicio --</option>
+                            {% for servicio in servicios %}
+                            <option value="{{ servicio.id }}" data-comision="{{ servicio.comision_porcentaje }}">{{ servicio.nombre }} ({{ servicio.comision_porcentaje }}%)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Calcular</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow" id="resultadoCard" style="display: none;">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">Resultado</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <strong>Servicio:</strong> <span id="resultadoServicio"></span>
+                </div>
+                <table class="table table-bordered">
+                    <tbody>
+                        <tr>
+                            <th>Monto de Transferencia:</th>
+                            <td class="text-end"><span id="resultadoMonto"></span>€</td>
+                        </tr>
+                        <tr>
+                            <th>Comisión (<span id="resultadoPorcentaje"></span>%):</th>
+                            <td class="text-end"><span id="resultadoComision"></span>€</td>
+                        </tr>
+                        <tr class="table-light">
+                            <th>Total a Pagar:</th>
+                            <td class="text-end"><strong><span id="resultadoTotal"></span>€</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="d-grid mt-3">
+                    <button type="button" id="nuevoCalculo" class="btn btn-secondary">Nuevo Cálculo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calculadoraForm = document.getElementById('calculadoraForm');
+    const resultadoCard = document.getElementById('resultadoCard');
+    const nuevoCalculo = document.getElementById('nuevoCalculo');
+    
+    // Elementos de resultado
+    const resultadoServicio = document.getElementById('resultadoServicio');
+    const resultadoMonto = document.getElementById('resultadoMonto');
+    const resultadoPorcentaje = document.getElementById('resultadoPorcentaje');
+    const resultadoComision = document.getElementById('resultadoComision');
+    const resultadoTotal = document.getElementById('resultadoTotal');
+    
+    // Manejar el envío del formulario
+    calculadoraForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(calculadoraForm);
+        
+        // Capturar el nombre del servicio seleccionado
+        const servicioSelect = document.getElementById('servicio_id');
+        const servicioText = servicioSelect.options[servicioSelect.selectedIndex].text;
+        const comisionPorcentaje = servicioSelect.options[servicioSelect.selectedIndex].dataset.comision;
+        
+        fetch('{{ url_for("calculadora.calcular") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar resultados
+                resultadoServicio.textContent = servicioText;
+                resultadoMonto.textContent = data.data.monto.toFixed(2);
+                resultadoPorcentaje.textContent = comisionPorcentaje;
+                resultadoComision.textContent = data.data.comision.toFixed(2);
+                resultadoTotal.textContent = data.data.total.toFixed(2);
+                
+                // Mostrar tarjeta de resultados
+                calculadoraForm.parentElement.parentElement.classList.add('mb-4');
+                resultadoCard.style.display = 'block';
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al realizar el cálculo');
+        });
+    });
+    
+    // Manejar botón de nuevo cálculo
+    nuevoCalculo.addEventListener('click', function() {
+        calculadoraForm.reset();
+        resultadoCard.style.display = 'none';
+        calculadoraForm.parentElement.parentElement.classList.remove('mb-4');
+    });
+});
+</script>
+{% endblock %}

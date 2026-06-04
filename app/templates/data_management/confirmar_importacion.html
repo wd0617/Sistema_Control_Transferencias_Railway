@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Importación - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-check-circle me-2"></i>Confirmar Importación de Clientes</h1>
+        <p class="text-muted">Revise los resultados de la validación antes de confirmar</p>
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-success shadow">
+            <div class="card-body text-center">
+                <h2>{{ resultados.exito|length }}</h2>
+                <small>Listos para Importar</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger shadow">
+            <div class="card-body text-center">
+                <h2>{{ resultados.errores|length }}</h2>
+                <small>Con Errores</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning shadow">
+            <div class="card-body text-center">
+                <h2>{{ resultados.duplicados|length }}</h2>
+                <small>Duplicados</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info shadow">
+            <div class="card-body text-center">
+                <h2>{{ resultados.total_lineas }}</h2>
+                <small>Total Procesados</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clientes a importar -->
+{% if resultados.exito %}
+<div class="card shadow mb-4 border-success">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0">
+            <i class="fas fa-check-circle me-2"></i>Clientes Válidos para Importar
+            <span class="badge bg-light text-success float-end">{{ resultados.exito|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-sm table-hover">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th>Línea</th>
+                        <th>Nombre</th>
+                        <th>Apellido</th>
+                        <th>Documento</th>
+                        <th>Teléfono</th>
+                        <th>Fecha Nac.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in resultados.exito %}
+                    <tr>
+                        <td>{{ item.linea }}</td>
+                        <td>{{ item.datos.nombre }}</td>
+                        <td>{{ item.datos.apellido }}</td>
+                        <td>{{ item.datos.documento }}</td>
+                        <td>{{ item.datos.telefono or '-' }}</td>
+                        <td>{{ item.datos.fecha_nacimiento.strftime('%d/%m/%Y') if item.datos.fecha_nacimiento else '-'
+                            }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Errores -->
+{% if resultados.errores %}
+<div class="card shadow mb-4 border-danger">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0">
+            <i class="fas fa-exclamation-circle me-2"></i>Errores Detectados
+            <span class="badge bg-light text-danger float-end">{{ resultados.errores|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="text-danger"><strong>Los siguientes registros no se importarán debido a errores:</strong></p>
+        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+            <table class="table table-sm">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th>Línea</th>
+                        <th>Error</th>
+                        <th>Datos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for error in resultados.errores %}
+                    <tr class="table-danger">
+                        <td>{{ error.linea }}</td>
+                        <td>{{ error.error }}</td>
+                        <td>
+                            <small>{{ error.datos if error.datos else 'N/A' }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Duplicados -->
+{% if resultados.duplicados %}
+<div class="card shadow mb-4 border-warning">
+    <div class="card-header bg-warning">
+        <h5 class="mb-0">
+            <i class="fas fa-copy me-2"></i>Clientes Duplicados
+            <span class="badge bg-dark float-end">{{ resultados.duplicados|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="text-warning"><strong>Los siguientes clientes ya existen en el sistema y no se importarán:</strong>
+        </p>
+        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+            <table class="table table-sm">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th>Línea</th>
+                        <th>Documento</th>
+                        <th>Nombre</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dup in resultados.duplicados %}
+                    <tr class="table-warning">
+                        <td>{{ dup.linea }}</td>
+                        <td>{{ dup.documento }}</td>
+                        <td>{{ dup.nombre }}</td>
+                        <td>
+                            <a href="{{ url_for('transacciones.cliente_historial', cliente_id=dup.cliente_existente_id) }}"
+                                class="btn btn-sm btn-outline-info" target="_blank">
+                                <i class="fas fa-eye me-1"></i> Ver Cliente
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Botones de acción -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-body">
+                {% if resultados.exito %}
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-info-circle me-2"></i>¿Confirmar Importación?</h5>
+                    <p class="mb-0">Se importarán {{ resultados.exito|length }} cliente(s) nuevo(s) al sistema.</p>
+                </div>
+
+                <form method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-success btn-lg me-2">
+                        <i class="fas fa-check me-1"></i> Confirmar e Importar {{ resultados.exito|length }} Cliente(s)
+                    </button>
+                </form>
+                <a href="{{ url_for('data_mgmt.cancelar_importacion') }}" class="btn btn-danger btn-lg">
+                    <i class="fas fa-times me-1"></i> Cancelar
+                </a>
+                {% else %}
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>No hay clientes válidos para importar</h5>
+                    <p class="mb-0">Corrija los errores en su archivo CSV e intente nuevamente.</p>
+                </div>
+
+                <a href="{{ url_for('data_mgmt.importar') }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left me-1"></i> Volver e Intentar de Nuevo
+                </a>
+                <a href="{{ url_for('data_mgmt.cancelar_importacion') }}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i> Cancelar
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

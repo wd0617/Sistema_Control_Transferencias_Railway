@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Alertas de Documentos - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="mb-0"><i class="fas fa-bell me-2 text-warning"></i>Alertas de Documentos</h1>
+            <a href="{{ url_for('documentos.lista') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Ver Todos
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Documentos Vencidos -->
+<div class="card shadow mb-4 border-danger">
+    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-exclamation-circle me-2"></i>Documentos Vencidos
+            <span class="badge bg-light text-danger ms-2">{{ vencidos|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if vencidos %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Documento</th>
+                        <th>Número</th>
+                        <th>Venció</th>
+                        <th>Días Vencido</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in vencidos %}
+                    <tr class="table-danger">
+                        <td>
+                            <a href="{{ url_for('documentos.documentos_cliente', cliente_id=doc.cliente_id) }}">
+                                {{ doc.cliente.nombre_completo() }}
+                            </a>
+                        </td>
+                        <td>{{ doc.tipo_documento }}</td>
+                        <td>{{ doc.numero_documento }}</td>
+                        <td>{{ doc.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <span class="badge bg-danger">{{ doc.dias_hasta_vencimiento|abs }} días</span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('documentos.editar', documento_id=doc.id) }}"
+                                class="btn btn-sm btn-warning">
+                                <i class="fas fa-sync-alt me-1"></i> Renovar
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+            <h5 class="text-success">¡Excelente!</h5>
+            <p class="text-muted">No hay documentos vencidos.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Documentos Por Vencer -->
+<div class="card shadow border-warning">
+    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-clock me-2"></i>Documentos por Vencer (próximos {{ dias_alerta }} días)
+            <span class="badge bg-dark ms-2">{{ por_vencer|length }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if por_vencer %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Documento</th>
+                        <th>Número</th>
+                        <th>Vence</th>
+                        <th>Días Restantes</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in por_vencer %}
+                    <tr
+                        class="{% if doc.dias_hasta_vencimiento <= 7 %}table-danger{% elif doc.dias_hasta_vencimiento <= 15 %}table-warning{% endif %}">
+                        <td>
+                            <a href="{{ url_for('documentos.documentos_cliente', cliente_id=doc.cliente_id) }}">
+                                {{ doc.cliente.nombre_completo() }}
+                            </a>
+                        </td>
+                        <td>{{ doc.tipo_documento }}</td>
+                        <td>{{ doc.numero_documento }}</td>
+                        <td>{{ doc.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {% if doc.dias_hasta_vencimiento <= 7 %} <span class="badge bg-danger">{{
+                                doc.dias_hasta_vencimiento }} días</span>
+                                {% elif doc.dias_hasta_vencimiento <= 15 %} <span class="badge bg-warning text-dark">{{
+                                    doc.dias_hasta_vencimiento }} días</span>
+                                    {% else %}
+                                    <span class="badge bg-info">{{ doc.dias_hasta_vencimiento }} días</span>
+                                    {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('documentos.editar', documento_id=doc.id) }}"
+                                    class="btn btn-outline-primary" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{{ url_for('transacciones.cliente_historial', cliente_id=doc.cliente_id) }}"
+                                    class="btn btn-outline-info" title="Ver Cliente">
+                                    <i class="fas fa-user"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-calendar-check fa-3x text-success mb-3"></i>
+            <h5 class="text-success">¡Todo en orden!</h5>
+            <p class="text-muted">No hay documentos próximos a vencer en los próximos {{ dias_alerta }} días.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Resumen -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div
+            class="alert {% if vencidos|length > 0 %}alert-danger{% elif por_vencer|length > 0 %}alert-warning{% else %}alert-success{% endif %}">
+            <div class="d-flex align-items-center">
+                {% if vencidos|length > 0 %}
+                <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                <div>
+                    <strong>¡Atención!</strong> Hay {{ vencidos|length }} documento(s) vencido(s) que requieren
+                    renovación inmediata.
+                    Los clientes con documentos vencidos no pueden realizar transferencias.
+                </div>
+                {% elif por_vencer|length > 0 %}
+                <i class="fas fa-clock fa-2x me-3"></i>
+                <div>
+                    <strong>Aviso:</strong> Hay {{ por_vencer|length }} documento(s) que vencerán pronto.
+                    Se recomienda contactar a los clientes para renovar sus documentos.
+                </div>
+                {% else %}
+                <i class="fas fa-check-circle fa-2x me-3"></i>
+                <div>
+                    <strong>¡Perfecto!</strong> Todos los documentos están vigentes y al día.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

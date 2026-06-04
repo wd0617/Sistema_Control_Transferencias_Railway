@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Documento - {{ cliente.nombre_completo() }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('clientes.lista') }}">Clientes</a></li>
+                <li class="breadcrumb-item"><a
+                        href="{{ url_for('documentos.documentos_cliente', cliente_id=cliente.id) }}">{{
+                        cliente.nombre_completo() }}</a></li>
+                <li class="breadcrumb-item active">Editar Documento</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-edit me-2"></i>Editar Documento</h1>
+        <p class="text-muted">Cliente: <strong>{{ cliente.nombre_completo() }}</strong></p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="row">
+                        <!-- Tipo de documento -->
+                        <div class="col-md-6 mb-3">
+                            <label for="tipo_documento" class="form-label">Tipo de Documento *</label>
+                            <select class="form-select" id="tipo_documento" name="tipo_documento" required>
+                                {% for codigo, nombre in tipos_documento %}
+                                <option value="{{ codigo }}" {% if documento.tipo_documento==codigo %}selected{% endif
+                                    %}>
+                                    {{ nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Número de documento -->
+                        <div class="col-md-6 mb-3">
+                            <label for="numero_documento" class="form-label">Número de Documento *</label>
+                            <input type="text" class="form-control" id="numero_documento" name="numero_documento"
+                                value="{{ documento.numero_documento }}" required>
+                        </div>
+
+                        <!-- País de emisión -->
+                        <div class="col-md-6 mb-3">
+                            <label for="pais_emision" class="form-label">País de Emisión</label>
+                            <input type="text" class="form-control" id="pais_emision" name="pais_emision"
+                                value="{{ documento.pais_emision or 'España' }}">
+                        </div>
+
+                        <!-- Documento principal -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label d-block">&nbsp;</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="es_documento_principal"
+                                    name="es_documento_principal" {% if documento.es_documento_principal %}checked{%
+                                    endif %}>
+                                <label class="form-check-label" for="es_documento_principal">
+                                    <i class="fas fa-star text-warning me-1"></i>Documento Principal
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Fecha de emisión -->
+                        <div class="col-md-6 mb-3">
+                            <label for="fecha_emision" class="form-label">Fecha de Emisión</label>
+                            <input type="date" class="form-control" id="fecha_emision" name="fecha_emision"
+                                value="{{ documento.fecha_emision.strftime('%Y-%m-%d') if documento.fecha_emision else '' }}">
+                        </div>
+
+                        <!-- Fecha de vencimiento -->
+                        <div class="col-md-6 mb-3">
+                            <label for="fecha_vencimiento" class="form-label">Fecha de Vencimiento *</label>
+                            <input type="date" class="form-control" id="fecha_vencimiento" name="fecha_vencimiento"
+                                value="{{ documento.fecha_vencimiento.strftime('%Y-%m-%d') if documento.fecha_vencimiento else '' }}"
+                                required>
+                            {% if documento.dias_hasta_vencimiento is not none %}
+                            <small
+                                class="{% if documento.dias_hasta_vencimiento < 0 %}text-danger{% elif documento.dias_hasta_vencimiento <= 30 %}text-warning{% else %}text-success{% endif %}">
+                                {% if documento.dias_hasta_vencimiento < 0 %} <i class="fas fa-exclamation-circle"></i>
+                                    Vencido hace {{ documento.dias_hasta_vencimiento|abs }} días
+                                    {% elif documento.dias_hasta_vencimiento == 0 %}
+                                    <i class="fas fa-exclamation-triangle"></i> Vence hoy
+                                    {% else %}
+                                    <i class="fas fa-clock"></i> Vence en {{ documento.dias_hasta_vencimiento }} días
+                                    {% endif %}
+                            </small>
+                            {% endif %}
+                        </div>
+
+                        <!-- Foto anverso actual -->
+                        <div class="col-md-6 mb-3">
+                            <label for="foto_anverso" class="form-label">Foto Anverso (Frente)</label>
+                            {% if documento.foto_anverso %}
+                            <div class="mb-2">
+                                <a href="{{ url_for('static', filename='uploads/' + documento.foto_anverso) }}"
+                                    target="_blank">
+                                    <img src="{{ url_for('static', filename='uploads/' + documento.foto_anverso) }}"
+                                        class="img-thumbnail" alt="Anverso actual" style="max-height: 80px;">
+                                </a>
+                                <small class="d-block text-muted">Imagen actual</small>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" id="foto_anverso" name="foto_anverso"
+                                accept="image/*,.pdf">
+                            <small class="text-muted">Subir nueva imagen para reemplazar</small>
+                        </div>
+
+                        <!-- Foto reverso actual -->
+                        <div class="col-md-6 mb-3">
+                            <label for="foto_reverso" class="form-label">Foto Reverso (Dorso)</label>
+                            {% if documento.foto_reverso %}
+                            <div class="mb-2">
+                                <a href="{{ url_for('static', filename='uploads/' + documento.foto_reverso) }}"
+                                    target="_blank">
+                                    <img src="{{ url_for('static', filename='uploads/' + documento.foto_reverso) }}"
+                                        class="img-thumbnail" alt="Reverso actual" style="max-height: 80px;">
+                                </a>
+                                <small class="d-block text-muted">Imagen actual</small>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" id="foto_reverso" name="foto_reverso"
+                                accept="image/*,.pdf">
+                            <small class="text-muted">Subir nueva imagen para reemplazar</small>
+                        </div>
+
+                        <!-- Notas -->
+                        <div class="col-12 mb-3">
+                            <label for="notas" class="form-label">Notas Adicionales</label>
+                            <textarea class="form-control" id="notas" name="notas"
+                                rows="3">{{ documento.notas or '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('documentos.documentos_cliente', cliente_id=cliente.id) }}"
+                            class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Estado actual -->
+        <div
+            class="card shadow-sm mb-4 {% if documento.estado == 'vencido' %}border-danger{% elif documento.estado == 'por_vencer' %}border-warning{% else %}border-success{% endif %}">
+            <div
+                class="card-header {% if documento.estado == 'vencido' %}bg-danger text-white{% elif documento.estado == 'por_vencer' %}bg-warning{% else %}bg-success text-white{% endif %}">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Estado Actual
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                {% if documento.estado == 'vencido' %}
+                <i class="fas fa-times-circle fa-3x text-danger mb-2"></i>
+                <h4 class="text-danger">VENCIDO</h4>
+                <p class="text-muted">Este documento venció hace {{ documento.dias_hasta_vencimiento|abs }} días</p>
+                {% elif documento.estado == 'por_vencer' %}
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-2"></i>
+                <h4 class="text-warning">POR VENCER</h4>
+                <p class="text-muted">Vence en {{ documento.dias_hasta_vencimiento }} días</p>
+                {% else %}
+                <i class="fas fa-check-circle fa-3x text-success mb-2"></i>
+                <h4 class="text-success">VIGENTE</h4>
+                <p class="text-muted">{{ documento.dias_hasta_vencimiento }} días hasta vencimiento</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Información de auditoría -->
+        <div class="card shadow-sm bg-light">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-history me-2"></i>Auditoría</h5>
+                <hr>
+                <p class="small mb-1"><strong>Registrado:</strong></p>
+                <p class="small text-muted">{{ documento.fecha_registro.strftime('%d/%m/%Y %H:%M') if
+                    documento.fecha_registro else 'N/A' }}</p>
+                <p class="small mb-1"><strong>Última modificación:</strong></p>
+                <p class="small text-muted mb-0">{{ documento.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if
+                    documento.fecha_actualizacion else 'N/A' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Importar Clientes - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('data_mgmt.index') }}">Gestión de Datos</a></li>
+                <li class="breadcrumb-item active">Importar Clientes</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-file-import me-2"></i>Importar Clientes desde CSV</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-4">
+                        <label for="archivo" class="form-label">Seleccionar Archivo CSV</label>
+                        <input type="file" class="form-control form-control-lg" id="archivo" name="archivo"
+                            accept=".csv" required>
+                        <small class="text-muted">Solo archivos .csv (codificación UTF-8)</small>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Formato del Archivo CSV</h6>
+                        <p class="mb-0 small">El archivo debe contener las siguientes columnas (en este orden):</p>
+                        <ul class="small mb-0 mt-2">
+                            <li><strong>Nombre</strong> (obligatorio)</li>
+                            <li><strong>Apellido</strong> (obligatorio)</li>
+                            <li><strong>Documento</strong> (obligatorio, debe ser único)</li>
+                            <li><strong>Teléfono</strong> (opcional)</li>
+                            <li><strong>Fecha Nacimiento</strong> (opcional, formato: YYYY-MM-DD)</li>
+                        </ul>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('data_mgmt.index') }}" class="btn btn-secondary">
+                            <i class="fas fa-times me-1"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-upload me-1"></i> Subir y Validar Archivo
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Ayuda rápida -->
+        <div class="card shadow-sm bg-light mb-3">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-question-circle me-2"></i>Ayuda</h6>
+                <hr>
+                <p class="small"><strong>Pasos para importar:</strong></p>
+                <ol class="small">
+                    <li>Prepare su archivo CSV con el formato correcto</li>
+                    <li>Suba el archivo usando este formulario</li>
+                    <li>Revise el resumen de validación</li>
+                    <li>Confirme la importación</li>
+                </ol>
+                <hr>
+                <p class="small text-muted mb-0">
+                    <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                    Los clientes con documentos duplicados no se importarán.
+                </p>
+            </div>
+        </div>
+
+        <!-- Plantilla -->
+        <div class="card shadow-sm border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-download fa-3x text-success mb-2"></i>
+                <h5>Plantilla CSV</h5>
+                <p class="text-muted small">Descargue un archivo de ejemplo con el formato correcto</p>
+                <a href="{{ url_for('data_mgmt.descargar_plantilla_clientes') }}" class="btn btn-success">
+                    <i class="fas fa-download me-1"></i> Descargar Plantilla
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
