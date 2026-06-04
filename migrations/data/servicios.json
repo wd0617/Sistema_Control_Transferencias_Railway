@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "nombre": "Western Union",
+    "descripcion": null,
+    "comision_porcentaje": 5.0,
+    "activo": true
+  },
+  {
+    "id": 2,
+    "nombre": "MoneyGram",
+    "descripcion": null,
+    "comision_porcentaje": 4.5,
+    "activo": true
+  },
+  {
+    "id": 3,
+    "nombre": "Ria Money Transfer",
+    "descripcion": null,
+    "comision_porcentaje": 4.0,
+    "activo": true
+  },
+  {
+    "id": 4,
+    "nombre": "Mondial Bony",
+    "descripcion": null,
+    "comision_porcentaje": 3.5,
+    "activo": true
+  },
+  {
+    "id": 5,
+    "nombre": "Monty",
+    "descripcion": null,
+    "comision_porcentaje": 3.0,
+    "activo": true
+  }
+]

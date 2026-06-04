@@ -1,0 +1,555 @@
+[
+  {
+    "id": 1,
+    "user_id": 1,
+    "activity": "Cambio de contraseña",
+    "timestamp": "2025-03-20T11:54:00",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 2,
+    "user_id": 1,
+    "activity": "Actualización de perfil",
+    "timestamp": "2025-03-20T11:54:00",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 3,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-03-20T12:12:40",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 4,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-03-20T12:12:51",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 5,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-03-24T12:07:10",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 6,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-03-31T11:20:52",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 7,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-02T09:22:03",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 8,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-02T11:45:10",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 9,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-15T08:04:19",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 10,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-19T12:22:38",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 11,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-22T07:23:49",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 12,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-24T07:33:00",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 13,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-26T13:20:51",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 14,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-04-30T07:49:03",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 15,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-05-03T09:28:11",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 16,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-05-05T07:26:47",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 17,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-05-09T07:21:41",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 18,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-05-12T08:02:21",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 19,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-05-17T12:04:08",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 20,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-05-22T07:37:44",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 21,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-06-14T12:10:12",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 22,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-06-26T13:01:29",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 23,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-06-26T13:23:43",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 24,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-06-28T08:58:51",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 25,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-07-04T12:22:36",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 26,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-07-31T12:45:38",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 27,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-08-12T12:26:22",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 28,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-08-18T12:14:27",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 29,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-08-19T09:15:02",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 30,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-08-19T10:47:36",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 31,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-08-19T12:14:14",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 32,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-08-28T16:06:14",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 33,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-09-03T12:28:43",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 34,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-09-06T13:31:37",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 35,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-09-15T11:50:12",
+    "ip_address": "10.0.4.170"
+  },
+  {
+    "id": 36,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-09-17T08:53:19",
+    "ip_address": "10.0.4.218"
+  },
+  {
+    "id": 37,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-09-17T16:26:42",
+    "ip_address": "10.0.4.218"
+  },
+  {
+    "id": 38,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-09-25T12:14:52",
+    "ip_address": "10.0.4.218"
+  },
+  {
+    "id": 39,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-10-06T12:31:07",
+    "ip_address": "10.0.4.218"
+  },
+  {
+    "id": 40,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-10-11T12:30:49",
+    "ip_address": "10.0.4.218"
+  },
+  {
+    "id": 41,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-10-22T12:36:45",
+    "ip_address": "10.0.4.218"
+  },
+  {
+    "id": 42,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-11-06T15:02:58",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 43,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-11-17T13:18:05",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 44,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-11-19T13:24:04",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 45,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-11-21T13:34:47",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 46,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-11-27T12:35:00",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 47,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-11-27T13:08:57",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 48,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-12-16T13:33:39",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 49,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2025-12-18T13:02:36",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 50,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-01-09T10:36:47",
+    "ip_address": "10.0.5.32"
+  },
+  {
+    "id": 51,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-01-30T19:33:56",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 52,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-01-31T08:04:05",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 53,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-01-31T08:24:28",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 54,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-02-02T14:14:44",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 55,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-02-11T12:27:28",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 56,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-02-16T10:43:25",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 57,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-02-17T09:02:41",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 58,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-02-27T08:24:34",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 59,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-03-09T13:40:53",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 60,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-03-12T14:01:26",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 61,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-03-20T08:27:29",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 62,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-03-20T13:41:01",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 63,
+    "user_id": 1,
+    "activity": "Cierre de sesión",
+    "timestamp": "2026-03-28T14:16:12",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 64,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-03-28T14:17:22",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 65,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-04-03T12:22:32",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 66,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-04-10T12:30:55",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 67,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-04-10T13:00:44",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 68,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-04-10T13:00:45",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 69,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-04-28T17:07:35",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 70,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-04-29T10:59:47",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 71,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-05-07T12:18:10",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 72,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-05-07T14:56:01",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 73,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-05-12T12:21:28",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 74,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-05-18T11:43:45",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 75,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-05-22T12:26:22",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 76,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-05-23T13:09:17",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 77,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-05-25T07:56:14",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 78,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-06-03T07:43:24",
+    "ip_address": "10.0.5.156"
+  },
+  {
+    "id": 79,
+    "user_id": 1,
+    "activity": "Inicio de sesión",
+    "timestamp": "2026-06-04T09:51:04",
+    "ip_address": "10.0.5.156"
+  }
+]
