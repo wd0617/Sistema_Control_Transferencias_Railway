@@ -10,7 +10,7 @@
 </div>
 
 <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-primary mb-3 shadow">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
@@ -28,7 +28,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-success mb-3 shadow">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
@@ -46,7 +46,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card text-white bg-warning mb-3 shadow">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
@@ -59,7 +59,8 @@
             </div>
             <div class="card-footer d-flex justify-content-between align-items-center">
                 <span>Ver detalles</span>
-                <a href="#" class="text-white"><i class="fas fa-arrow-circle-right"></i></a>
+                <a href="{{ url_for('clientes.lista') }}" class="text-white"><i
+                        class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
     </div>
@@ -84,6 +85,7 @@
 </div>
 
 <div class="row">
+    <!-- Columna principal: Clientes + Gráficos -->
     <div class="col-lg-8">
         <div class="card shadow mb-4">
             <div class="card-header bg-light">
@@ -137,7 +139,42 @@
                 </div>
             </div>
         </div>
+
+        <!-- Gráficos -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Tendencia de Transacciones</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="transaccionesChart" height="120"></canvas>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Por Servicio</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="serviciosChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card shadow h-100">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Clientes Nuevos</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="clientesChart" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Sidebar -->
     <div class="col-lg-4">
         <!-- Alertas de documentos -->
         <div
@@ -219,63 +256,6 @@
                     servicios</a>
             </div>
         </div>
-
-        <div class="card shadow">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-bell me-2"></i>Notificaciones</h5>
-            </div>
-            <div class="card-body">
-                <div class="list-group">
-                    {% if notificaciones %}
-                    {% for notif in notificaciones %}
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1">{{ notif.cliente.nombre_completo() }}</h6>
-                            <small>{{ notif.fecha_creacion.strftime('%d/%m/%Y') }}</small>
-                        </div>
-                        <p class="mb-1">{{ notif.mensaje }}</p>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="list-group-item">No hay notificaciones pendientes</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Gráficos del Dashboard -->
-<div class="row mb-4">
-    <div class="col-lg-6 mb-3">
-        <div class="card shadow">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Tendencia de Transacciones</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="transaccionesChart" height="200"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 mb-3">
-        <div class="card shadow">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Por Servicio</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="serviciosChart" height="260"></canvas>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 mb-3">
-        <div class="card shadow">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Clientes Nuevos</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="clientesChart" height="260"></canvas>
-            </div>
-        </div>
     </div>
 </div>
 {% endblock %}
@@ -306,6 +286,7 @@ new Chart(document.getElementById('transaccionesChart'), {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
     }
@@ -323,6 +304,7 @@ new Chart(document.getElementById('serviciosChart'), {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
             legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
         }
@@ -345,6 +327,7 @@ new Chart(document.getElementById('clientesChart'), {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
     }
