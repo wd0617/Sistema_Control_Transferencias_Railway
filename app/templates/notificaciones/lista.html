@@ -42,9 +42,13 @@
                         <small class="text-muted">{{ notif.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</small>
                     </div>
                     <p class="mb-1">
+                        {% if notif.cliente_id %}
                         <a href="{{ url_for('transacciones.cliente_historial', cliente_id=notif.cliente_id) }}" class="text-decoration-none">
                             Ver cliente <i class="fas fa-arrow-right"></i>
                         </a>
+                        {% else %}
+                        <span class="text-muted">Notificación del sistema</span>
+                        {% endif %}
                     </p>
                 </div>
                 <a href="{{ url_for('notificaciones.marcar_leida', notificacion_id=notif.id) }}" class="btn btn-sm btn-outline-success" title="Marcar como leída">

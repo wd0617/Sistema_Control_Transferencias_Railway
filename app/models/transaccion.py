@@ -5,7 +5,7 @@ class Transaccion(db.Model):
     __tablename__ = 'transacciones'
     
     id = db.Column(db.Integer, primary_key=True)
-    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=True)
     servicio_id = db.Column(db.Integer, db.ForeignKey('servicios.id'), nullable=False)
     monto = db.Column(db.Float, nullable=False)
     comision = db.Column(db.Float, default=0)
