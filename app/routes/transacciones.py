@@ -238,158 +238,119 @@ def editar(transaccion_id):
 @transacciones.route('/registro-rapido', methods=['GET', 'POST'])
 @login_required
 def registro_rapido():
-    """Registro rápido: pegar recibo → confirmar datos → guardar."""
-    from app.utils.parse_recibo import parsear_recibo
+    """Formulario ultra-rápido: 5 campos, autocompletado, guardar de una."""
     from datetime import date
     
     servicios = Servicio.query.filter_by(activo=True).all()
-    paso = request.args.get('paso', '1')
     
     if request.method == 'POST':
-        action = request.form.get('action')
+        cliente_id = request.form.get('cliente_id', type=int)
+        documento = request.form.get('documento', '').strip()
+        nombre = request.form.get('nombre', '').strip()
+        apellido = request.form.get('apellido', '').strip()
+        telefono = request.form.get('telefono', '').strip()
+        servicio_id = request.form.get('servicio_id', type=int)
+        monto_str = request.form.get('monto', '').strip()
         
-        if action == 'analizar':
-            # Paso 2: analizar texto del recibo
-            texto_recibo = request.form.get('texto_recibo', '')
-            datos = parsear_recibo(texto_recibo)
-            
-            # Buscar cliente por documento exacto
-            cliente = None
-            if datos.get('documento'):
-                cliente = Cliente.query.filter(
-                    Cliente.documento.ilike(datos['documento'])
-                ).first()
-            
-            # Buscar candidatos por nombre/apellido/teléfono (evitar duplicados)
-            candidatos = []
-            if not cliente:
-                query = Cliente.query
-                filtros = []
-                if datos.get('nombre'):
-                    filtros.append(Cliente.nombre.ilike(f"%{datos['nombre']}%"))
-                if datos.get('apellido'):
-                    filtros.append(Cliente.apellido.ilike(f"%{datos['apellido']}%"))
-                if datos.get('telefono'):
-                    tel_limpio = re.sub(r'[^\d]', '', datos['telefono'])
-                    if len(tel_limpio) >= 7:
-                        filtros.append(Cliente.telefono.ilike(f"%{tel_limpio}%"))
-                
-                if filtros:
-                    from sqlalchemy import or_
-                    candidatos = query.filter(or_(*filtros)).limit(5).all()
-            
-            return render_template('transacciones/registro_rapido.html',
-                                   paso='2',
-                                   datos=datos,
-                                   cliente=cliente,
-                                   candidatos=candidatos,
-                                   servicios=servicios,
-                                   texto_recibo=texto_recibo)
-        
-        elif action == 'confirmar':
-            # Paso 3: guardar transacción
-            cliente_id = request.form.get('cliente_id', type=int)
-            documento = request.form.get('documento', '').strip()
-            nombre = request.form.get('nombre', '').strip()
-            apellido = request.form.get('apellido', '').strip()
-            telefono = request.form.get('telefono', '').strip()
-            fecha_nacimiento_str = request.form.get('fecha_nacimiento', '').strip()
-            servicio_id = request.form.get('servicio_id', type=int)
-            monto_str = request.form.get('monto', '').strip()
-            
-            # Validar servicio
-            servicio = Servicio.query.get(servicio_id) if servicio_id else None
-            if not servicio:
-                flash('Debes seleccionar un servicio', 'danger')
-                return redirect(url_for('transacciones.registro_rapido'))
-            
-            # Parsear monto
-            try:
-                monto = float(monto_str.replace(',', '.'))
-            except ValueError:
-                flash('El monto no es válido', 'danger')
-                return redirect(url_for('transacciones.registro_rapido'))
-            
-            # Buscar o crear cliente
-            cliente = None
-            if cliente_id:
-                cliente = Cliente.query.get(cliente_id)
-            
-            if not cliente and documento:
-                cliente = Cliente.query.filter(
-                    Cliente.documento.ilike(documento)
-                ).first()
-            
-            if not cliente:
-                # Crear cliente nuevo
-                if not nombre or not apellido or not documento:
-                    flash('Faltan datos del cliente (nombre, apellido, documento)', 'danger')
-                    return redirect(url_for('transacciones.registro_rapido'))
-                
-                # Fecha de nacimiento
-                fecha_nacimiento = date(1990, 1, 1)
-                if fecha_nacimiento_str:
-                    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
-                        try:
-                            fecha_nacimiento = datetime.strptime(fecha_nacimiento_str, fmt).date()
-                            break
-                        except ValueError:
-                            continue
-                
-                cliente = Cliente(
-                    nombre=nombre,
-                    apellido=apellido,
-                    documento=documento,
-                    telefono=telefono or None,
-                    fecha_nacimiento=fecha_nacimiento,
-                    ultima_visita=datetime.utcnow()
-                )
-                db.session.add(cliente)
-                db.session.flush()
-                
-                cliente.servicios.append(servicio)
-            else:
-                cliente.ultima_visita = datetime.utcnow()
-                if servicio not in cliente.servicios:
-                    cliente.servicios.append(servicio)
-            
-            # PREVENCIÓN DE DUPLICADOS
-            # Verificar si ya existe una transacción similar en las últimas 24h
-            desde = datetime.utcnow() - timedelta(hours=24)
-            dup = Transaccion.query.filter(
-                Transaccion.cliente_id == cliente.id,
-                Transaccion.servicio_id == servicio.id,
-                Transaccion.monto == monto,
-                Transaccion.fecha >= desde
-            ).first()
-            
-            if dup:
-                flash(
-                    f'⚠️ Parece que esta transacción ya fue registrada hace '
-                    f'{int((datetime.utcnow() - dup.fecha).total_seconds() // 60)} minutos '
-                    f'({cliente.nombre_completo()} - {monto:.2f}€). '
-                    f'Si estás seguro de que es una transacción distinta, podés continuar desde '
-                    f'<a href="{url_for("transacciones.nueva", cliente_id=cliente.id)}">acá</a>.',
-                    'warning'
-                )
-                return redirect(url_for('transacciones.registro_rapido'))
-            
-            # Crear transacción
-            comision = round(monto * (servicio.comision_porcentaje or 0) / 100, 2)
-            transaccion = Transaccion(
-                cliente_id=cliente.id,
-                servicio_id=servicio.id,
-                monto=monto,
-                comision=comision,
-                creado_por=current_user.id
-            )
-            db.session.add(transaccion)
-            db.session.commit()
-            
-            flash(f'Transacción registrada: {cliente.nombre_completo()} - {monto:.2f}€ ({servicio.nombre})', 'success')
+        servicio = Servicio.query.get(servicio_id) if servicio_id else None
+        if not servicio:
+            flash('Seleccioná un servicio', 'danger')
             return redirect(url_for('transacciones.registro_rapido'))
+        
+        try:
+            monto = float(monto_str.replace(',', '.'))
+        except ValueError:
+            flash('El monto no es válido', 'danger')
+            return redirect(url_for('transacciones.registro_rapido'))
+        
+        cliente = None
+        if cliente_id:
+            cliente = Cliente.query.get(cliente_id)
+        if not cliente and documento:
+            cliente = Cliente.query.filter(Cliente.documento.ilike(documento)).first()
+        
+        if not cliente:
+            if not nombre or not apellido or not documento:
+                flash('Faltan datos del cliente', 'danger')
+                return redirect(url_for('transacciones.registro_rapido'))
+            cliente = Cliente(
+                nombre=nombre,
+                apellido=apellido,
+                documento=documento,
+                telefono=telefono or None,
+                fecha_nacimiento=date(1990, 1, 1),
+                ultima_visita=datetime.utcnow()
+            )
+            db.session.add(cliente)
+            db.session.flush()
+            cliente.servicios.append(servicio)
+        else:
+            cliente.ultima_visita = datetime.utcnow()
+            if servicio not in cliente.servicios:
+                cliente.servicios.append(servicio)
+        
+        # Anti-duplicado
+        desde = datetime.utcnow() - timedelta(hours=24)
+        dup = Transaccion.query.filter(
+            Transaccion.cliente_id == cliente.id,
+            Transaccion.servicio_id == servicio.id,
+            Transaccion.monto == monto,
+            Transaccion.fecha >= desde
+        ).first()
+        if dup:
+            flash(f'⚠️ Ya existe esta transacción ({cliente.nombre_completo()} - {monto:.2f}€). '
+                  f'<a href="{url_for("transacciones.nueva", cliente_id=cliente.id)}">Click acá</a> si querés forzarla.',
+                  'warning')
+            return redirect(url_for('transacciones.registro_rapido'))
+        
+        comision = round(monto * (servicio.comision_porcentaje or 0) / 100, 2)
+        db.session.add(Transaccion(
+            cliente_id=cliente.id,
+            servicio_id=servicio.id,
+            monto=monto,
+            comision=comision,
+            creado_por=current_user.id
+        ))
+        db.session.commit()
+        flash(f'✅ {cliente.nombre_completo()} — {monto:.2f}€ ({servicio.nombre})', 'success')
+        return redirect(url_for('transacciones.registro_rapido'))
     
-    # GET: mostrar paso 1
-    return render_template('transacciones/registro_rapido.html',
-                           paso='1',
-                           servicios=servicios)
+    return render_template('transacciones/registro_rapido.html', servicios=servicios)
+
+
+@transacciones.route('/api/buscar-cliente')
+@login_required
+def api_buscar_cliente():
+    """AJAX: busca clientes por documento, nombre o teléfono."""
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return {'resultados': []}
+    
+    like = f'%{q}%'
+    clientes = Cliente.query.filter(
+        or_(
+            Cliente.documento.ilike(like),
+            Cliente.nombre.ilike(like),
+            Cliente.apellido.ilike(like),
+            Cliente.telefono.ilike(like)
+        )
+    ).limit(8).all()
+    
+    return {
+        'resultados': [
+            {'id': c.id, 'documento': c.documento, 'nombre': c.nombre,
+             'apellido': c.apellido, 'telefono': c.telefono or ''}
+            for c in clientes
+        ]
+    }
+
+
+@transacciones.route('/api/analizar-recibo', methods=['POST'])
+@login_required
+def api_analizar_recibo():
+    """AJAX: recibe texto de recibo y devuelve JSON con datos extraídos."""
+    from app.utils.parse_recibo import parsear_recibo
+    data = request.get_json() or {}
+    texto = data.get('texto', '')
+    resultado = parsear_recibo(texto)
+    return resultado

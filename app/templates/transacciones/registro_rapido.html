@@ -4,167 +4,74 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <h2 class="mb-4"><i class="fas fa-bolt me-2 text-warning"></i>Registro Rápido</h2>
-        <p class="text-muted mb-4">
-            {% if paso == '1' %}
-            Copiá el texto del recibo y pegalo acá. El sistema detecta nombre, documento, monto y servicio.
-            {% elif paso == '2' %}
-            Revisá los datos, corregí lo necesario y guardá.
-            {% endif %}
-        </p>
+    <div class="col-lg-7">
+        <h2 class="mb-3"><i class="fas fa-bolt me-2 text-warning"></i>Registro Rápido</h2>
 
-        {% if paso == '1' %}
-        <!-- PASO 1: Pegar recibo -->
-        <div class="card shadow">
+        <!-- Paso opcional: pegar recibo -->
+        <div class="card shadow-sm mb-4">
             <div class="card-body">
-                <form method="POST" action="{{ url_for('transacciones.registro_rapido') }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="action" value="analizar">
-
-                    <div class="mb-3">
-                        <label for="texto_recibo" class="form-label fw-bold">Texto del recibo</label>
-                        <textarea name="texto_recibo" id="texto_recibo" class="form-control font-monospace"
-                            rows="12" placeholder="Pegá acá todo el texto del recibo..." autofocus></textarea>
-                        <div class="form-text">
-                            Funciona con recibos de Western Union, MoneyGram, Ria, Mondial Bony y Monty.
-                            <a href="#" data-bs-toggle="collapse" data-bs-target="#ejemplo">Ver ejemplos</a>
-                        </div>
-                    </div>
-
-                    <div class="collapse" id="ejemplo">
-                        <div class="alert alert-light border font-monospace small">
-                            <strong>Western Union (italiano)</strong><br>
-                            Mittente: VICTOR ALBERTO MIRANDA BELEVAN<br>
-                            Data Nascita: 31-08-1969<br>
-                            Numero del documento: 123188847<br>
-                            Totale: 50,00 Euro<br>
-                            <hr class="my-2">
-                            <strong>Ria (italiano)</strong><br>
-                            Nome e cognome del cliente: MOUHAMADOU DIAW<br>
-                            Numero del documento: CA69419FI<br>
-                            Telefono: 39-328 4249050<br>
-                            Totale Contante EUR 999,00<br>
-                            <hr class="my-2">
-                            <strong>Mondial Bony</strong><br>
-                            Nome: WANDER LUIS<br>
-                            Cognome: VELASQUEZ PEREZ<br>
-                            Tel.: 3512377329<br>
-                            Numero doc.: CA78861CJ<br>
-                            Importo inviato: 146,55 EUR
-                        </div>
-                    </div>
-
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-magic me-2"></i>Analizar recibo
-                        </button>
-                    </div>
-                </form>
+                <label class="form-label fw-bold text-muted small">Pegar texto del recibo <span class="fw-normal">(opcional)</span></label>
+                <div class="input-group">
+                    <textarea id="texto_recibo" class="form-control font-monospace" rows="2"
+                        placeholder="Copiá el recibo y pegalo acá para autocompletar..."></textarea>
+                    <button class="btn btn-outline-primary" type="button" onclick="analizarRecibo()">
+                        <i class="fas fa-magic"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
-        {% elif paso == '2' %}
-        <!-- PASO 2: Confirmar datos -->
-        <div class="card shadow mb-4">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Datos del Cliente</h5>
-            </div>
+        <!-- Formulario principal -->
+        <div class="card shadow">
             <div class="card-body">
-                {% if cliente %}
-                <div class="alert alert-info">
-                    <i class="fas fa-check-circle me-2"></i>
-                    <strong>Cliente encontrado:</strong> {{ cliente.nombre_completo() }} — Doc: {{ cliente.documento }}
-                </div>
-                <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
-                {% elif candidatos %}
-                <div class="alert alert-warning">
-                    <i class="fas fa-question-circle me-2"></i>
-                    <strong>¿Es alguno de estos clientes?</strong> El documento no coincide exactamente.
-                </div>
-                <div class="list-group mb-3">
-                    {% for c in candidatos %}
-                    <label class="list-group-item list-group-item-action">
-                        <input class="form-check-input me-2" type="radio" name="cliente_id" value="{{ c.id }}">
-                        <strong>{{ c.nombre_completo() }}</strong>
-                        <span class="text-muted">— Doc: {{ c.documento }}</span>
-                        {% if c.telefono %}<span class="text-muted">— Tel: {{ c.telefono }}</span>{% endif %}
-                    </label>
-                    {% endfor %}
-                    <label class="list-group-item list-group-item-action bg-light">
-                        <input class="form-check-input me-2" type="radio" name="cliente_id" value="" checked>
-                        <strong>Ninguno, es un cliente nuevo</strong>
-                    </label>
-                </div>
-                {% endif %}
-
-                <form method="POST" action="{{ url_for('transacciones.registro_rapido') }}">
+                <form method="POST" action="{{ url_for('transacciones.registro_rapido') }}" id="formRapido">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="action" value="confirmar">
-                    {% if cliente %}<input type="hidden" name="cliente_id" value="{{ cliente.id }}">{% endif %}
+                    <input type="hidden" name="cliente_id" id="cliente_id" value="">
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Nombre</label>
-                            <input type="text" name="nombre" class="form-control"
-                                value="{{ datos.nombre|default('') }}" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Apellido</label>
-                            <input type="text" name="apellido" class="form-control"
-                                value="{{ datos.apellido|default('') }}" required>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Documento</label>
-                            <input type="text" name="documento" class="form-control"
-                                value="{{ datos.documento|default('') }}" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Teléfono</label>
-                            <input type="text" name="telefono" class="form-control"
-                                value="{{ datos.telefono|default('') }}">
-                        </div>
-                    </div>
-
-                    {% if not cliente %}
                     <div class="mb-3">
-                        <label class="form-label">Fecha de nacimiento <small class="text-muted">(requerido para cliente nuevo)</small></label>
-                        <input type="date" name="fecha_nacimiento" class="form-control"
-                            value="{{ datos.fecha_nacimiento_raw|default('') }}" required>
+                        <label class="form-label fw-bold">Documento del cliente</label>
+                        <input type="text" name="documento" id="documento" class="form-control form-control-lg"
+                            placeholder="NIE, Pasaporte, DNI..." autocomplete="off" required>
+                        <div id="sugerencias" class="list-group position-absolute w-100 shadow-sm" style="z-index:1000; display:none;"></div>
                     </div>
-                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" name="nombre" id="nombre" class="form-control" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Apellido</label>
+                            <input type="text" name="apellido" id="apellido" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" name="telefono" id="telefono" class="form-control">
+                    </div>
 
                     <hr class="my-4">
 
-                    <h5 class="mb-3"><i class="fas fa-money-bill-wave me-2"></i>Datos de la Transacción</h5>
-
                     <div class="row align-items-end">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Monto (€)</label>
-                            <input type="text" name="monto" class="form-control"
-                                value="{{ datos.monto|default('') }}" required>
+                        <div class="col-5 mb-3">
+                            <label class="form-label fw-bold">Monto (€)</label>
+                            <input type="text" name="monto" id="monto" class="form-control form-control-lg"
+                                placeholder="0,00" required>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Servicio</label>
-                            <select name="servicio_id" class="form-select" required>
+                        <div class="col-7 mb-3">
+                            <label class="form-label fw-bold">Servicio</label>
+                            <select name="servicio_id" id="servicio_id" class="form-select form-select-lg" required>
                                 <option value="">Seleccionar...</option>
                                 {% for s in servicios %}
-                                <option value="{{ s.id }}"
-                                    {% if datos.servicio_hint == s.nombre %}selected{% endif %}>
-                                    {{ s.nombre }} ({{ s.comision_porcentaje }}%)
-                                </option>
+                                <option value="{{ s.id }}">{{ s.nombre }} ({{ s.comision_porcentaje }}%)</option>
                                 {% endfor %}
                             </select>
                         </div>
                     </div>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-between mt-4">
-                        <a href="{{ url_for('transacciones.registro_rapido') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-arrow-left me-1"></i> Volver
-                        </a>
+                    <div class="d-grid mt-3">
                         <button type="submit" class="btn btn-success btn-lg">
                             <i class="fas fa-save me-2"></i>Guardar transacción
                         </button>
@@ -172,19 +79,104 @@
                 </form>
             </div>
         </div>
-
-        <!-- Texto original colapsable -->
-        <div class="card border-0 bg-light">
-            <div class="card-body py-2">
-                <a class="text-muted small text-decoration-none" data-bs-toggle="collapse" href="#textoOriginal">
-                    <i class="fas fa-code me-1"></i>Ver texto original detectado
-                </a>
-                <div class="collapse mt-2" id="textoOriginal">
-                    <pre class="mb-0 font-monospace small text-muted">{{ texto_recibo }}</pre>
-                </div>
-            </div>
-        </div>
-        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Analizar recibo pegado (opcional)
+function analizarRecibo() {
+    const texto = document.getElementById('texto_recibo').value;
+    if (!texto.trim()) return;
+
+    fetch('/api/analizar-recibo', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({texto: texto})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.nombre) document.getElementById('nombre').value = data.nombre;
+        if (data.apellido) document.getElementById('apellido').value = data.apellido;
+        if (data.documento) {
+            document.getElementById('documento').value = data.documento;
+            buscarClientePorDocumento(data.documento);
+        }
+        if (data.telefono) document.getElementById('telefono').value = data.telefono;
+        if (data.monto) document.getElementById('monto').value = data.monto.toFixed(2).replace('.', ',');
+        // Seleccionar servicio si coincide
+        if (data.servicio_hint) {
+            const opts = document.getElementById('servicio_id').options;
+            for (let i = 0; i < opts.length; i++) {
+                if (opts[i].text.toUpperCase().includes(data.servicio_hint.toUpperCase())) {
+                    document.getElementById('servicio_id').selectedIndex = i;
+                    break;
+                }
+            }
+        }
+    });
+}
+
+// Autocompletado de cliente por documento
+let timeoutBuscar = null;
+document.getElementById('documento').addEventListener('input', function(e) {
+    const q = e.target.value.trim();
+    const box = document.getElementById('sugerencias');
+    if (q.length < 3) { box.style.display = 'none'; return; }
+
+    clearTimeout(timeoutBuscar);
+    timeoutBuscar = setTimeout(() => buscarCliente(q), 300);
+});
+
+function buscarCliente(q) {
+    fetch('/api/buscar-cliente?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(data => {
+        const box = document.getElementById('sugerencias');
+        const lista = data.resultados || [];
+        if (!lista.length) { box.style.display = 'none'; return; }
+
+        box.innerHTML = lista.map(c => `
+            <button type="button" class="list-group-item list-group-item-action"
+                onclick="seleccionarCliente(${c.id}, '${c.documento}', '${c.nombre}', '${c.apellido}', '${c.telefono || ''}')">
+                <strong>${c.nombre} ${c.apellido}</strong>
+                <span class="text-muted">— ${c.documento}</span>
+            </button>
+        `).join('');
+        box.style.display = 'block';
+    });
+}
+
+function buscarClientePorDocumento(doc) {
+    fetch('/api/buscar-cliente?q=' + encodeURIComponent(doc))
+    .then(r => r.json())
+    .then(data => {
+        const lista = data.resultados || [];
+        if (lista.length === 1) {
+            const c = lista[0];
+            seleccionarCliente(c.id, c.documento, c.nombre, c.apellido, c.telefono || '');
+        }
+    });
+}
+
+function seleccionarCliente(id, doc, nom, ape, tel) {
+    document.getElementById('cliente_id').value = id;
+    document.getElementById('documento').value = doc;
+    document.getElementById('nombre').value = nom;
+    document.getElementById('apellido').value = ape;
+    document.getElementById('telefono').value = tel;
+    document.getElementById('sugerencias').style.display = 'none';
+}
+
+// Cerrar sugerencias al hacer clic fuera
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#documento') && !e.target.closest('#sugerencias')) {
+        document.getElementById('sugerencias').style.display = 'none';
+    }
+});
+</script>
 {% endblock %}
