@@ -56,5 +56,11 @@ def create_app(config_class=Config):
             return {'notificaciones_count': contar_notificaciones_pendientes()}
         return {'notificaciones_count': 0}
     
+    # Inyectar 'now' en todos los templates para el footer
+    @app.context_processor
+    def inject_now():
+        from datetime import datetime
+        return {'now': datetime.now()}
+    
     return app
 
