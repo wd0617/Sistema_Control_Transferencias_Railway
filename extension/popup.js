@@ -1,6 +1,6 @@
-// CONFIGURACIÓN: cambiá esta URL por la de tu sistema en Railway
-const API_URL = 'https://TUDOMINIO.railway.app/api/analizar-recibo';
-const APP_URL = 'https://TUDOMINIO.railway.app/transacciones/registro-rapido';
+// URL del sistema en Railway
+const API_URL = 'https://sistemacontroltransferenciasrailway-production.up.railway.app/api/analizar-recibo';
+const APP_URL = 'https://sistemacontroltransferenciasrailway-production.up.railway.app/transacciones/registro-rapido';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const btn = document.getElementById('btnEnviar');
