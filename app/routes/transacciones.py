@@ -232,3 +232,133 @@ def editar(transaccion_id):
                           transaccion=transaccion,
                           servicios=servicios,
                           now=datetime.now())
+
+
+@transacciones.route('/registro-rapido', methods=['GET', 'POST'])
+@login_required
+def registro_rapido():
+    """Registro rápido: pegar recibo → confirmar datos → guardar."""
+    from app.utils.parse_recibo import parsear_recibo
+    from datetime import date
+    
+    servicios = Servicio.query.filter_by(activo=True).all()
+    paso = request.args.get('paso', '1')
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'analizar':
+            # Paso 2: analizar texto del recibo
+            texto_recibo = request.form.get('texto_recibo', '')
+            datos = parsear_recibo(texto_recibo)
+            
+            # Buscar cliente por documento si existe
+            cliente = None
+            if datos.get('documento'):
+                cliente = Cliente.query.filter(
+                    Cliente.documento.ilike(datos['documento'])
+                ).first()
+            
+            if not cliente and datos.get('nombre'):
+                # Fallback: buscar por nombre/apellido
+                cliente = Cliente.query.filter(
+                    Cliente.nombre.ilike(datos['nombre']),
+                    Cliente.apellido.ilike(datos.get('apellido', ''))
+                ).first()
+            
+            return render_template('transacciones/registro_rapido.html',
+                                   paso='2',
+                                   datos=datos,
+                                   cliente=cliente,
+                                   servicios=servicios,
+                                   texto_recibo=texto_recibo)
+        
+        elif action == 'confirmar':
+            # Paso 3: guardar transacción
+            cliente_id = request.form.get('cliente_id', type=int)
+            documento = request.form.get('documento', '').strip()
+            nombre = request.form.get('nombre', '').strip()
+            apellido = request.form.get('apellido', '').strip()
+            telefono = request.form.get('telefono', '').strip()
+            fecha_nacimiento_str = request.form.get('fecha_nacimiento', '').strip()
+            servicio_id = request.form.get('servicio_id', type=int)
+            monto_str = request.form.get('monto', '').strip()
+            referencia = request.form.get('referencia', '').strip()
+            
+            # Validar servicio
+            servicio = Servicio.query.get(servicio_id) if servicio_id else None
+            if not servicio:
+                flash('Debes seleccionar un servicio', 'danger')
+                return redirect(url_for('transacciones.registro_rapido'))
+            
+            # Parsear monto
+            try:
+                monto = float(monto_str.replace(',', '.'))
+            except ValueError:
+                flash('El monto no es válido', 'danger')
+                return redirect(url_for('transacciones.registro_rapido'))
+            
+            # Buscar o crear cliente
+            cliente = None
+            if cliente_id:
+                cliente = Cliente.query.get(cliente_id)
+            
+            if not cliente and documento:
+                cliente = Cliente.query.filter(
+                    Cliente.documento.ilike(documento)
+                ).first()
+            
+            if not cliente:
+                # Crear cliente nuevo
+                if not nombre or not apellido or not documento:
+                    flash('Faltan datos del cliente (nombre, apellido, documento)', 'danger')
+                    return redirect(url_for('transacciones.registro_rapido'))
+                
+                # Fecha de nacimiento (requerida por el modelo)
+                fecha_nacimiento = date(1990, 1, 1)
+                if fecha_nacimiento_str:
+                    try:
+                        fecha_nacimiento = datetime.strptime(fecha_nacimiento_str, '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
+                
+                cliente = Cliente(
+                    nombre=nombre,
+                    apellido=apellido,
+                    documento=documento,
+                    telefono=telefono or None,
+                    fecha_nacimiento=fecha_nacimiento,
+                    ultima_visita=datetime.utcnow()
+                )
+                db.session.add(cliente)
+                db.session.flush()  # Obtener ID sin commit
+                
+                # Asociar servicio al cliente
+                cliente.servicios.append(servicio)
+            else:
+                # Actualizar última visita
+                cliente.ultima_visita = datetime.utcnow()
+                # Asegurar que tenga el servicio asociado
+                if servicio not in cliente.servicios:
+                    cliente.servicios.append(servicio)
+            
+            # Crear transacción
+            comision = round(monto * (servicio.comision_porcentaje or 0) / 100, 2)
+            transaccion = Transaccion(
+                cliente_id=cliente.id,
+                servicio_id=servicio.id,
+                monto=monto,
+                comision=comision,
+                referencia=referencia or None,
+                creado_por=current_user.id
+            )
+            db.session.add(transaccion)
+            db.session.commit()
+            
+            flash(f'Transacción registrada: {cliente.nombre_completo()} - {monto:.2f}€ ({servicio.nombre})', 'success')
+            return redirect(url_for('transacciones.registro_rapido'))
+    
+    # GET: mostrar paso 1
+    return render_template('transacciones/registro_rapido.html',
+                           paso='1',
+                           servicios=servicios)
