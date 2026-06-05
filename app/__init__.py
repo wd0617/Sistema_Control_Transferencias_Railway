@@ -2,9 +2,11 @@ import os
 from flask import Flask
 from config import Config
 from app.extensions import db, login_manager, migrate, csrf
+from flask_cors import CORS
 
 def create_app(config_class=Config):
     app = Flask(__name__)
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
     app.config.from_object(config_class)
     
     # Asegurar que existe la carpeta de uploads

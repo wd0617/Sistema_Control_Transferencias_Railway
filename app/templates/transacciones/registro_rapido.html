@@ -178,5 +178,29 @@ document.addEventListener('click', function(e) {
         document.getElementById('sugerencias').style.display = 'none';
     }
 });
+
+// Pre-llenar desde query params (viene de la extensión)
+(function() {
+    const p = new URLSearchParams(location.search);
+    if (p.get('doc')) document.getElementById('documento').value = p.get('doc');
+    if (p.get('nom')) document.getElementById('nombre').value = p.get('nom');
+    if (p.get('ape')) document.getElementById('apellido').value = p.get('ape');
+    if (p.get('tel')) document.getElementById('telefono').value = p.get('tel');
+    if (p.get('mon')) document.getElementById('monto').value = p.get('mon');
+    if (p.get('srv')) {
+        const srv = p.get('srv').toUpperCase();
+        const opts = document.getElementById('servicio_id').options;
+        for (let i = 0; i < opts.length; i++) {
+            if (opts[i].text.toUpperCase().includes(srv)) {
+                document.getElementById('servicio_id').selectedIndex = i;
+                break;
+            }
+        }
+    }
+    // Si hay documento, buscar cliente
+    if (p.get('doc')) {
+        setTimeout(() => buscarClientePorDocumento(p.get('doc')), 300);
+    }
+})();
 </script>
 {% endblock %}
