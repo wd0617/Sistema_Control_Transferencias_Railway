@@ -2,6 +2,24 @@
 
 {% block title %}Dashboard - Sistema de Control de Transferencias{% endblock %}
 
+{% block extra_css %}
+<style>
+.btn-rapido {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    animation: rapido-pulse 2s infinite;
+}
+.btn-rapido:hover {
+    transform: scale(1.03);
+    box-shadow: 0 0 25px rgba(255, 140, 0, 0.6) !important;
+}
+@keyframes rapido-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 140, 0, 0.5); }
+    70% { box-shadow: 0 0 0 12px rgba(255, 140, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 140, 0, 0); }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
@@ -10,12 +28,29 @@
 </div>
 
 <div class="row mb-4">
-    <div class="col-md-3">
+    <!-- Registro Rápido -->
+    <div class="col-md-4">
+        <a href="{{ url_for('transacciones.registro_rapido') }}" class="text-decoration-none">
+            <div class="card text-white mb-3 shadow btn-rapido" style="background: linear-gradient(135deg, #ff8c00 0%, #ffb700 100%); border: none;">
+                <div class="card-body py-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title fw-bold mb-1">Registrar Envío</h5>
+                            <h2 class="display-5 fw-bold mb-0">⚡ Rápido</h2>
+                            <small class="opacity-75">Copiar recibo → Listo</small>
+                        </div>
+                        <i class="fas fa-bolt fa-3x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-2">
         <div class="card text-white bg-primary mb-3 shadow">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="card-title">Clientes Totales</h5>
+                        <h5 class="card-title">Clientes</h5>
                         <h2 class="display-4">{{ clientes_count|default('0') }}</h2>
                     </div>
                     <i class="fas fa-users fa-3x"></i>
@@ -28,12 +63,12 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card text-white bg-success mb-3 shadow">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="card-title">Transacciones Hoy</h5>
+                        <h5 class="card-title">Hoy</h5>
                         <h2 class="display-4">{{ transacciones_hoy|default('0') }}</h2>
                     </div>
                     <i class="fas fa-money-bill-wave fa-3x"></i>
@@ -46,12 +81,12 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card text-white bg-warning mb-3 shadow">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="card-title">Clientes al Límite</h5>
+                        <h5 class="card-title">Al Límite</h5>
                         <h2 class="display-4">{{ clientes_limite|default('0') }}</h2>
                     </div>
                     <i class="fas fa-exclamation-triangle fa-3x"></i>
@@ -64,12 +99,12 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card text-white bg-danger mb-3 shadow">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="card-title">Docs. Vencidos</h5>
+                        <h5 class="card-title">Vencidos</h5>
                         <h2 class="display-4">{{ docs_vencidos|default('0') }}</h2>
                     </div>
                     <i class="fas fa-id-card fa-3x"></i>
