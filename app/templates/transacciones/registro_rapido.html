@@ -71,9 +71,28 @@
                 {% if cliente %}
                 <div class="alert alert-info">
                     <i class="fas fa-check-circle me-2"></i>
-                    <strong>Cliente existente:</strong> {{ cliente.nombre_completo() }} — Documento: {{ cliente.documento }}
+                    <strong>Cliente encontrado:</strong> {{ cliente.nombre_completo() }} — Documento: {{ cliente.documento }}
                 </div>
                 <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
+                {% elif candidatos %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-question-circle me-2"></i>
+                    <strong>¿Es alguno de estos clientes?</strong> El documento no coincide exactamente, pero encontramos similitudes.
+                </div>
+                <div class="list-group mb-3">
+                    {% for c in candidatos %}
+                    <label class="list-group-item list-group-item-action">
+                        <input class="form-check-input me-2" type="radio" name="cliente_id" value="{{ c.id }}">
+                        <strong>{{ c.nombre_completo() }}</strong>
+                        <span class="text-muted">— Doc: {{ c.documento }}</span>
+                        {% if c.telefono %}<span class="text-muted">— Tel: {{ c.telefono }}</span>{% endif %}
+                    </label>
+                    {% endfor %}
+                    <label class="list-group-item list-group-item-action bg-light">
+                        <input class="form-check-input me-2" type="radio" name="cliente_id" value="" checked>
+                        <strong>Ninguno, es un cliente nuevo</strong>
+                    </label>
+                </div>
                 {% endif %}
 
                 <form method="POST" action="{{ url_for('transacciones.registro_rapido') }}">

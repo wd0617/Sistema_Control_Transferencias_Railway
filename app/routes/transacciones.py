@@ -1,3 +1,4 @@
+import re
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
@@ -5,7 +6,7 @@ from app.models.cliente import Cliente, Servicio
 from app.models.transaccion import Transaccion
 from app import db
 from datetime import datetime, timedelta
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_
 
 transacciones = Blueprint('transacciones', __name__)
 
@@ -252,24 +253,36 @@ def registro_rapido():
             texto_recibo = request.form.get('texto_recibo', '')
             datos = parsear_recibo(texto_recibo)
             
-            # Buscar cliente por documento si existe
+            # Buscar cliente por documento exacto
             cliente = None
             if datos.get('documento'):
                 cliente = Cliente.query.filter(
                     Cliente.documento.ilike(datos['documento'])
                 ).first()
             
-            if not cliente and datos.get('nombre'):
-                # Fallback: buscar por nombre/apellido
-                cliente = Cliente.query.filter(
-                    Cliente.nombre.ilike(datos['nombre']),
-                    Cliente.apellido.ilike(datos.get('apellido', ''))
-                ).first()
+            # Buscar candidatos por nombre/apellido/teléfono (evitar duplicados)
+            candidatos = []
+            if not cliente:
+                query = Cliente.query
+                filtros = []
+                if datos.get('nombre'):
+                    filtros.append(Cliente.nombre.ilike(f"%{datos['nombre']}%"))
+                if datos.get('apellido'):
+                    filtros.append(Cliente.apellido.ilike(f"%{datos['apellido']}%"))
+                if datos.get('telefono'):
+                    tel_limpio = re.sub(r'[^\d]', '', datos['telefono'])
+                    if len(tel_limpio) >= 7:
+                        filtros.append(Cliente.telefono.ilike(f"%{tel_limpio}%"))
+                
+                if filtros:
+                    from sqlalchemy import or_
+                    candidatos = query.filter(or_(*filtros)).limit(5).all()
             
             return render_template('transacciones/registro_rapido.html',
                                    paso='2',
                                    datos=datos,
                                    cliente=cliente,
+                                   candidatos=candidatos,
                                    servicios=servicios,
                                    texto_recibo=texto_recibo)
         
