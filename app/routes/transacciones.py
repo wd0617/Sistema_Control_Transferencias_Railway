@@ -296,7 +296,6 @@ def registro_rapido():
             fecha_nacimiento_str = request.form.get('fecha_nacimiento', '').strip()
             servicio_id = request.form.get('servicio_id', type=int)
             monto_str = request.form.get('monto', '').strip()
-            referencia = request.form.get('referencia', '').strip()
             
             # Validar servicio
             servicio = Servicio.query.get(servicio_id) if servicio_id else None
@@ -327,13 +326,15 @@ def registro_rapido():
                     flash('Faltan datos del cliente (nombre, apellido, documento)', 'danger')
                     return redirect(url_for('transacciones.registro_rapido'))
                 
-                # Fecha de nacimiento (requerida por el modelo)
+                # Fecha de nacimiento
                 fecha_nacimiento = date(1990, 1, 1)
                 if fecha_nacimiento_str:
-                    try:
-                        fecha_nacimiento = datetime.strptime(fecha_nacimiento_str, '%Y-%m-%d').date()
-                    except ValueError:
-                        pass
+                    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+                        try:
+                            fecha_nacimiento = datetime.strptime(fecha_nacimiento_str, fmt).date()
+                            break
+                        except ValueError:
+                            continue
                 
                 cliente = Cliente(
                     nombre=nombre,
@@ -344,16 +345,34 @@ def registro_rapido():
                     ultima_visita=datetime.utcnow()
                 )
                 db.session.add(cliente)
-                db.session.flush()  # Obtener ID sin commit
+                db.session.flush()
                 
-                # Asociar servicio al cliente
                 cliente.servicios.append(servicio)
             else:
-                # Actualizar última visita
                 cliente.ultima_visita = datetime.utcnow()
-                # Asegurar que tenga el servicio asociado
                 if servicio not in cliente.servicios:
                     cliente.servicios.append(servicio)
+            
+            # PREVENCIÓN DE DUPLICADOS
+            # Verificar si ya existe una transacción similar en las últimas 24h
+            desde = datetime.utcnow() - timedelta(hours=24)
+            dup = Transaccion.query.filter(
+                Transaccion.cliente_id == cliente.id,
+                Transaccion.servicio_id == servicio.id,
+                Transaccion.monto == monto,
+                Transaccion.fecha >= desde
+            ).first()
+            
+            if dup:
+                flash(
+                    f'⚠️ Parece que esta transacción ya fue registrada hace '
+                    f'{int((datetime.utcnow() - dup.fecha).total_seconds() // 60)} minutos '
+                    f'({cliente.nombre_completo()} - {monto:.2f}€). '
+                    f'Si estás seguro de que es una transacción distinta, podés continuar desde '
+                    f'<a href="{url_for("transacciones.nueva", cliente_id=cliente.id)}">acá</a>.',
+                    'warning'
+                )
+                return redirect(url_for('transacciones.registro_rapido'))
             
             # Crear transacción
             comision = round(monto * (servicio.comision_porcentaje or 0) / 100, 2)
@@ -362,7 +381,6 @@ def registro_rapido():
                 servicio_id=servicio.id,
                 monto=monto,
                 comision=comision,
-                referencia=referencia or None,
                 creado_por=current_user.id
             )
             db.session.add(transaccion)

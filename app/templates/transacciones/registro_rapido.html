@@ -8,9 +8,9 @@
         <h2 class="mb-4"><i class="fas fa-bolt me-2 text-warning"></i>Registro Rápido</h2>
         <p class="text-muted mb-4">
             {% if paso == '1' %}
-            Copiá el texto completo del recibo y pegalo acá. El sistema extrae los datos automáticamente.
+            Copiá el texto del recibo y pegalo acá. El sistema detecta nombre, documento, monto y servicio.
             {% elif paso == '2' %}
-            Revisá los datos detectados, corregí si hace falta y guardá.
+            Revisá los datos, corregí lo necesario y guardá.
             {% endif %}
         </p>
 
@@ -27,28 +27,31 @@
                         <textarea name="texto_recibo" id="texto_recibo" class="form-control font-monospace"
                             rows="12" placeholder="Pegá acá todo el texto del recibo..." autofocus></textarea>
                         <div class="form-text">
-                            Funciona con Western Union, MoneyGram, Ria y otros.
-                            <a href="#" data-bs-toggle="collapse" data-bs-target="#ejemplo">Ver ejemplo</a>
+                            Funciona con recibos de Western Union, MoneyGram, Ria, Mondial Bony y Monty.
+                            <a href="#" data-bs-toggle="collapse" data-bs-target="#ejemplo">Ver ejemplos</a>
                         </div>
                     </div>
 
                     <div class="collapse" id="ejemplo">
                         <div class="alert alert-light border font-monospace small">
-                            <strong>WESTERN UNION</strong><br>
-                            Date: 04/06/2026<br>
-                            Sender: DIANA KAZARYAN<br>
-                            ID: AY8425261<br>
-                            Send Amount: 500.00 EUR<br>
-                            MTCN: 1234567890<br>
-                            Phone: +34612345678<br>
-                            Agent: 1234-MADRID<br>
+                            <strong>Western Union (italiano)</strong><br>
+                            Mittente: VICTOR ALBERTO MIRANDA BELEVAN<br>
+                            Data Nascita: 31-08-1969<br>
+                            Numero del documento: 123188847<br>
+                            Totale: 50,00 Euro<br>
                             <hr class="my-2">
-                            <strong>MONEYGRAM</strong><br>
-                            Reference Number: 987654321<br>
-                            Send Amount: 1.250,00 EUR<br>
-                            Sender Name: TEA GALUASHVILI<br>
-                            Sender ID: CA35122VT<br>
-                            Date: 04/06/2026 14:30<br>
+                            <strong>Ria (italiano)</strong><br>
+                            Nome e cognome del cliente: MOUHAMADOU DIAW<br>
+                            Numero del documento: CA69419FI<br>
+                            Telefono: 39-328 4249050<br>
+                            Totale Contante EUR 999,00<br>
+                            <hr class="my-2">
+                            <strong>Mondial Bony</strong><br>
+                            Nome: WANDER LUIS<br>
+                            Cognome: VELASQUEZ PEREZ<br>
+                            Tel.: 3512377329<br>
+                            Numero doc.: CA78861CJ<br>
+                            Importo inviato: 146,55 EUR
                         </div>
                     </div>
 
@@ -71,13 +74,13 @@
                 {% if cliente %}
                 <div class="alert alert-info">
                     <i class="fas fa-check-circle me-2"></i>
-                    <strong>Cliente encontrado:</strong> {{ cliente.nombre_completo() }} — Documento: {{ cliente.documento }}
+                    <strong>Cliente encontrado:</strong> {{ cliente.nombre_completo() }} — Doc: {{ cliente.documento }}
                 </div>
                 <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
                 {% elif candidatos %}
                 <div class="alert alert-warning">
                     <i class="fas fa-question-circle me-2"></i>
-                    <strong>¿Es alguno de estos clientes?</strong> El documento no coincide exactamente, pero encontramos similitudes.
+                    <strong>¿Es alguno de estos clientes?</strong> El documento no coincide exactamente.
                 </div>
                 <div class="list-group mb-3">
                     {% for c in candidatos %}
@@ -129,7 +132,8 @@
                     {% if not cliente %}
                     <div class="mb-3">
                         <label class="form-label">Fecha de nacimiento <small class="text-muted">(requerido para cliente nuevo)</small></label>
-                        <input type="date" name="fecha_nacimiento" class="form-control" required>
+                        <input type="date" name="fecha_nacimiento" class="form-control"
+                            value="{{ datos.fecha_nacimiento_raw|default('') }}" required>
                     </div>
                     {% endif %}
 
@@ -137,18 +141,13 @@
 
                     <h5 class="mb-3"><i class="fas fa-money-bill-wave me-2"></i>Datos de la Transacción</h5>
 
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
+                    <div class="row align-items-end">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Monto (€)</label>
                             <input type="text" name="monto" class="form-control"
                                 value="{{ datos.monto|default('') }}" required>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Referencia / MTCN</label>
-                            <input type="text" name="referencia" class="form-control"
-                                value="{{ datos.referencia|default('') }}">
-                        </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Servicio</label>
                             <select name="servicio_id" class="form-select" required>
                                 <option value="">Seleccionar...</option>
@@ -174,11 +173,15 @@
             </div>
         </div>
 
-        <!-- Debug: texto original -->
+        <!-- Texto original colapsable -->
         <div class="card border-0 bg-light">
-            <div class="card-body">
-                <small class="text-muted fw-bold">Texto original detectado:</small>
-                <pre class="mb-0 mt-2 font-monospace small text-muted">{{ texto_recibo }}</pre>
+            <div class="card-body py-2">
+                <a class="text-muted small text-decoration-none" data-bs-toggle="collapse" href="#textoOriginal">
+                    <i class="fas fa-code me-1"></i>Ver texto original detectado
+                </a>
+                <div class="collapse mt-2" id="textoOriginal">
+                    <pre class="mb-0 font-monospace small text-muted">{{ texto_recibo }}</pre>
+                </div>
             </div>
         </div>
         {% endif %}

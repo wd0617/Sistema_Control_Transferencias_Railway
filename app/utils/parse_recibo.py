@@ -1,6 +1,8 @@
 """
-Parser inteligente de recibos de transferencias.
-Soporta texto copiado desde Western Union, MoneyGram, Ria, etc.
+Parser de recibos de transferencias.
+Optimizado para recibos italianos de Western Union, MoneyGram, Ria,
+Mondial Bony y Monty. Extrae solo lo esencial: nombre, apellido,
+documento, teléfono, monto (EUR), fecha de nacimiento y servicio.
 """
 
 import re
@@ -9,210 +11,110 @@ import re
 def parsear_recibo(texto):
     """
     Recibe texto crudo de un recibo y devuelve dict con datos extraídos.
-    Campos devueltos: nombre, apellido, documento, telefono, monto, moneda,
-    referencia, servicio (inferido), raw_nombre, lineas_nombre.
     """
     if not texto:
         return {}
 
-    texto = texto.strip()
     lineas = [l.strip() for l in texto.splitlines() if l.strip()]
-    texto_upper = texto.upper()
     resultado = {}
 
-    # --- Detectar servicio (hint) ---
-    servicios_hints = [
-        ('Western Union', ['WESTERN UNION', 'WU ', 'WESTERNUNION']),
-        ('MoneyGram', ['MONEYGRAM', 'MONEY GRAM']),
-        ('Ria', ['RIA MONEY', 'RIA ', 'RIAMONEY']),
-        ('Mondial Bony', ['MONDIAL', 'BONY']),
-        ('Monty', ['MONTY']),
-    ]
-    for serv_nombre, hints in servicios_hints:
-        for h in hints:
-            if h in texto_upper:
-                resultado['servicio_hint'] = serv_nombre
-                break
-        if resultado.get('servicio_hint'):
-            break
-
-    # --- Referencia / MTCN / PIN ---
-    ref_patterns = [
-        r'(?:MTCN|REFERENCE|REF\.?\s*NO|PIN|CONTROL|NUMERO|NÚMERO)\s*[:#]?\s*(\d{8,12})',
-        r'(?:MTCN|REFERENCE)\s*[:#]?\s*(\d[\d\s-]{6,14}\d)',
-    ]
-    for pat in ref_patterns:
-        m = re.search(pat, texto_upper)
-        if m:
-            resultado['referencia'] = re.sub(r'\s+', '', m.group(1))
-            break
-
-    # --- Monto ---
-    monto = None
-    moneda = None
-    # Patrones tipo "Amount: 1,234.56 EUR" o "Monto: 1.234,56 €"
-    monto_patterns = [
-        r'(?:AMOUNT|SEND\s*AMOUNT|MONTO|TOTAL|CANTIDAD)\s*[:]?\s*([\d\.,]+)\s*([A-Z€$]{1,3})?',
-        r'([\d\.,]+)\s*(?:EUR|USD|GBP|€|\$)\s*(?:AMOUNT|MONTO)?',
-        r'(?:EUR|USD|GBP|€|\$)\s*([\d\.,]+)',
-    ]
-    for pat in monto_patterns:
-        m = re.search(pat, texto_upper)
-        if m:
-            raw_str = m.group(1)
-            raw = _parse_monto(raw_str)
-            if raw is not None:
-                resultado['monto'] = round(raw, 2)
-                break
-
-    # Detectar moneda
-    if 'EUR' in texto_upper or '€' in texto:
-        resultado['moneda'] = 'EUR'
-    elif 'USD' in texto_upper or '$' in texto:
-        resultado['moneda'] = 'USD'
-    elif 'GBP' in texto_upper or '£' in texto:
-        resultado['moneda'] = 'GBP'
-
-    # --- Documento / ID ---
-    doc_patterns = [
-        r'(?:ID|DNI|PASSPORT|PASAPORTE|DOCUMENTO|DOC\.?\s*NO)\s*[:#]?\s*([A-Z0-9]{5,20})',
-        r'(?:ID|DNI)\s*[:]?\s*([0-9]{7,10}[A-Z]?)',
-    ]
-    for pat in doc_patterns:
-        m = re.search(pat, texto_upper)
-        if m:
-            resultado['documento'] = m.group(1).strip()
-            break
-    if not resultado.get('documento'):
-        # Fallback: buscar número suelto de 7-10 dígitos que no sea monto ni referencia
-        candidatos = re.findall(r'\b([0-9]{7,10})\b', texto)
-        for c in candidatos:
-            if c != str(int(resultado.get('monto', 0))) and c != resultado.get('referencia', ''):
-                resultado['documento'] = c
-                break
-
-    # --- Teléfono ---
-    tel_match = re.search(r'(?:TEL|TELEFONO|TELÉFONO|PHONE|MOBILE)\s*[:]?\s*([+\d\s()-]{7,20})', texto_upper)
-    if tel_match:
-        resultado['telefono'] = re.sub(r'[^\d+]', '', tel_match.group(1))
-    else:
-        # Buscar número español/europeo suelto
-        tel_match = re.search(r'\b(\+?\d[\d\s]{8,14}\d)\b', texto)
-        if tel_match:
-            limpio = re.sub(r'[^\d+]', '', tel_match.group(1))
-            if len(limpio) >= 9:
-                resultado['telefono'] = limpio
-
-    # --- Nombre ---
-    nombre, apellido = extraer_nombre(lineas, texto_upper)
+    # --- NOMBRE ---
+    nombre, apellido = _extraer_nombre(lineas)
     if nombre:
         resultado['nombre'] = nombre
         resultado['apellido'] = apellido or ''
-        resultado['raw_nombre'] = f"{nombre} {apellido}".strip()
+
+    # --- DOCUMENTO ---
+    doc = _extraer_documento(lineas)
+    if doc:
+        resultado['documento'] = doc
+
+    # --- TELEFONO ---
+    tel = _extraer_telefono(lineas)
+    if tel:
+        resultado['telefono'] = tel
+
+    # --- MONTO ---
+    monto = _extraer_monto(lineas)
+    if monto:
+        resultado['monto'] = round(monto, 2)
+
+    # --- FECHA DE NACIMIENTO ---
+    fecha = _extraer_fecha_nacimiento(lineas)
+    if fecha:
+        resultado['fecha_nacimiento_raw'] = fecha
+
+    # --- SERVICIO ---
+    resultado['servicio_hint'] = _detectar_servicio(texto)
 
     return resultado
 
 
-def extraer_nombre(lineas, texto_upper):
-    """
-    Intenta extraer nombre y apellido del recibo.
-    Busca palabras clave como Sender, Remitente, From, Name, y también
-    heurísticas sobre líneas con 2-4 palabras en mayúsculas.
-    """
-    nombre_keywords = ['SENDER', 'REMITENTE', 'FROM', 'SEND BY', 'ENVIA', 'NAME', 'NOMBRE',
-                       'CUSTOMER', 'CLIENTE', 'SENDER NAME', 'REMITENTE NAME']
-
-    # Estrategia 1: buscar línea justo después de keyword
-    for i, linea in enumerate(lineas):
-        linea_upper = linea.upper()
-        for kw in nombre_keywords:
-            if kw in linea_upper:
-                # Si la keyword está sola en la línea, tomar la siguiente
-                if len(linea_upper.replace(kw, '').strip()) <= 2:
-                    if i + 1 < len(lineas):
-                        candidato = lineas[i + 1]
-                        parsed = parsear_nombre_completo(candidato)
-                        if parsed:
-                            return parsed
-                else:
-                    # La keyword y el nombre están en la misma línea
-                    resto = linea_upper.split(kw, 1)[-1].strip(':').strip()
-                    parsed = parsear_nombre_completo(resto)
-                    if parsed:
-                        return parsed
-
-    # Estrategia 2: buscar líneas que parezcan nombres completos (2-4 palabras, mayúsculas)
+def _extraer_nombre(lineas):
+    """Busca nombre y apellido en el recibo."""
+    # Estrategia 1: Nome + Cognome separados (Mondial Bony, etc.)
+    nome = None
+    cognome = None
     for linea in lineas:
-        palabras = linea.split()
-        if 2 <= len(palabras) <= 4:
-            # Debe tener al menos 2 palabras puramente alfabéticas
-            alfabeticas = [p for p in palabras if p.isalpha() and len(p) > 1]
-            if len(alfabeticas) >= 2:
-                # Descartar si parece dirección, calle, etc.
-                descartar = ['STREET', 'AVENUE', 'CALLE', 'AVDA', 'C/', 'PLAZA',
-                             'BANK', 'BANCO', 'AGENT', 'OFFICE', 'SUCURSAL',
-                             'AMOUNT', 'TOTAL', 'FEE', 'COMISION', 'DATE', 'FECHA',
-                             'REFERENCE', 'MTCN', 'PHONE', 'TEL', 'EMAIL', 'ID',
-                             'DNI', 'PASSPORT', 'ADDRESS', 'DIRECCION']
-                if not any(d in linea.upper() for d in descartar):
-                    parsed = parsear_nombre_completo(linea)
-                    if parsed:
-                        return parsed
+        lu = linea.upper()
+        if lu.startswith('NOME:') or lu.startswith('NOME '):
+            val = linea.split(':', 1)[-1].strip()
+            if val and len(val) > 1:
+                nome = val
+        elif lu.startswith('COGNOME:') or lu.startswith('COGNOME '):
+            val = linea.split(':', 1)[-1].strip()
+            if val and len(val) > 1:
+                cognome = val
+    if nome and cognome:
+        return nome, cognome
+
+    # Estrategia 2: Nome e cognome del cliente (Ria)
+    for linea in lineas:
+        lu = linea.upper()
+        if 'NOME E COGNOME DEL CLIENTE' in lu or 'NOME E COGNOME' in lu:
+            val = linea.split(':', 1)[-1].strip()
+            if val:
+                return _split_nombre(val)
+
+    # Estrategia 3: Mittente: (WU, Monty)
+    for linea in lineas:
+        lu = linea.upper()
+        if lu.startswith('MITTENTE:') or lu.startswith('MITTENTE '):
+            val = linea.split(':', 1)[-1].strip()
+            if val:
+                return _split_nombre(val)
+
+    # Estrategia 4: Informazioni Mittente (MoneyGram) - valor en siguiente línea
+    for i, linea in enumerate(lineas):
+        if 'INFORMAZIONI MITTENTE' in linea.upper():
+            for j in range(i + 1, min(i + 5, len(lineas))):
+                candidato = lineas[j]
+                # Debe ser una línea que parezca nombre (2-4 palabras alfabéticas)
+                palabras = candidato.split()
+                if 2 <= len(palabras) <= 4:
+                    alfa = [p for p in palabras if p.isalpha() and len(p) > 1]
+                    if len(alfa) >= 2:
+                        return _split_nombre(candidato)
+            break
+
+    # Estrategia 5: Ordinante (Monty) puede tener nombre entre paréntesis o después de dos puntos
+    for linea in lineas:
+        lu = linea.upper()
+        if 'ORDINANTE' in lu and ('TEL.' in lu or 'TEL:' in lu):
+            # Formato: "Ordinante (Tel.): NOMBRE APELLIDO (telefono)"
+            # o "Ordinante (Tel.): APELLIDO, NOMBRE (telefono)"
+            val = linea.split(':', 1)[-1].strip()
+            # Quitar teléfono entre paréntesis al final
+            val = re.sub(r'\s*\(\+?\d[\d\s-]+\)\s*$', '', val)
+            val = val.strip()
+            if val:
+                return _split_nombre(val)
 
     return None, None
 
 
-def _parse_monto(raw_str):
-    """
-    Convierte un string de monto a float, manejando formatos europeos e ingleses.
-    Ejemplos: '500.00' -> 500.0, '1.250,00' -> 1250.0, '1,250.00' -> 1250.0
-    """
-    if not raw_str:
-        return None
-    s = raw_str.strip()
-    has_dot = '.' in s
-    has_comma = ',' in s
-
-    if has_dot and has_comma:
-        # Ambos: determinar cuál es el separador decimal (el último)
-        last_dot = s.rfind('.')
-        last_comma = s.rfind(',')
-        if last_comma > last_dot:
-            # Europeo: 1.250,00
-            s = s.replace('.', '').replace(',', '.')
-        else:
-            # Inglés: 1,250.00
-            s = s.replace(',', '')
-    elif has_comma:
-        # Solo coma: puede ser decimal europeo (1250,00) o separador de miles (1,250)
-        parts = s.split(',')
-        if len(parts) == 2 and len(parts[-1]) <= 2:
-            # Decimal europeo
-            s = s.replace(',', '.')
-        else:
-            # Separador de miles
-            s = s.replace(',', '')
-    elif has_dot:
-        # Solo punto: puede ser decimal (500.00) o separador de miles (1.250)
-        parts = s.split('.')
-        if len(parts) == 2 and len(parts[-1]) <= 2:
-            # Decimal
-            pass  # s ya está bien
-        else:
-            # Separador de miles
-            s = s.replace('.', '')
-
-    try:
-        return float(s)
-    except ValueError:
-        return None
-
-
-def parsear_nombre_completo(texto):
-    """
-    Separa un texto tipo 'DIANA KAZARYAN' o 'KAZARYAN, DIANA' en nombre y apellido.
-    Devuelve (nombre, apellido) o None si no parece un nombre válido.
-    """
+def _split_nombre(texto):
+    """Separa nombre completo en (nombre, apellido)."""
     texto = texto.strip().strip(':').strip()
     if not texto:
         return None, None
@@ -224,19 +126,179 @@ def parsear_nombre_completo(texto):
             return partes[1], partes[0]
 
     palabras = texto.split()
-    # Filtrar palabras no alfabéticas
-    palabras = [p for p in palabras if p.isalpha() and len(p) > 1]
+    palabras = [p for p in palabras if p.isalpha() or (p.isalpha() and len(p) > 1)]
+    # Filtrar palabras no alfabéticas pero conservar apellidos con guion?
+    palabras = [p for p in texto.split() if re.match(r'^[A-ZÀ-ÿ-]+$', p, re.I) and len(p) > 1]
 
     if len(palabras) < 2:
         return None, None
 
-    # Nombre = primera palabra (o primeras 2 si son cortas)
-    # Apellido = resto
     if len(palabras) == 2:
         return palabras[0], palabras[1]
     elif len(palabras) == 3:
-        # Probable: nombre + 2 apellidos
         return palabras[0], ' '.join(palabras[1:])
     else:
-        # 4+ palabras: tomar primeras 2 como nombre, resto como apellido (o ajustar)
         return ' '.join(palabras[:2]), ' '.join(palabras[2:])
+
+
+def _extraer_documento(lineas):
+    """Extrae número de documento del remitente."""
+    keywords = [
+        'NUMERO DEL DOCUMENTO:', 'NUMERO DOC.:', 'NUMERO DOCUMENTO:',
+        'DOCUMENTO:', 'N. DOCUMENTO:', 'N.DOCUMENTO:', 'NUMERO DOC:',
+        'NUMERO DOCUMENTO', 'NUMERO ID:', 'NUMERO ID'
+    ]
+    for linea in lineas:
+        lu = linea.upper()
+        for kw in keywords:
+            if kw in lu:
+                val = linea.split(':', 1)[-1].strip()
+                if val and len(val) >= 5:
+                    # Si es "Passaporto 122073848", quedarse solo con el número
+                    partes = val.split()
+                    if len(partes) == 2 and len(partes[1]) >= 5:
+                        tipos = ['PASSAPORTO', 'CARTA', 'IDENTITA', 'IDENTITÀ', 'NIE', 'DNI']
+                        if any(t in partes[0].upper() for t in tipos):
+                            return partes[1]
+                    return val
+    return None
+
+
+def _extraer_telefono(lineas):
+    """Extrae teléfono del remitente. Ignora números de agencia."""
+    keywords = ['TELEFONO:', 'TEL.:', 'TEL:']
+    for linea in lineas:
+        lu = linea.upper()
+        for kw in keywords:
+            if kw in lu:
+                val = linea.split(':', 1)[-1].strip()
+                if val:
+                    limpio = re.sub(r'[^\d+]', '', val)
+                    # Filtrar: teléfonos personales suelen tener 9-15 dígitos
+                    # Los de agencia pueden ser más cortos o tener prefijos raros
+                    if 9 <= len(limpio) <= 15:
+                        return limpio
+    return None
+
+
+def _extraer_monto(lineas):
+    """
+    Extrae el monto pagado en EUR.
+    Ignora montos en moneda destino (XOF, DOP, etc.).
+    """
+    # Keywords que indican el monto CORRECTO (lo que pagó el cliente en EUR)
+    keywords_validos = [
+        'TOTALE:', 'TOTALE CONTANTE', 'IMPORTO TOTALE PAGATO:',
+        'IMPORTO INVIATO:', 'IMPORTO DI TRASFERIMENTO:',
+        'MONTO:', 'TOTAL:', 'IMPORTO CONTANTE'
+    ]
+    # Keywords que indican montos a IGNORAR (moneda destino, comisiones, etc.)
+    keywords_ignorar = [
+        'IMPORTO DA RICEVERE', 'IMPORTO IN VALUTA LOCALE',
+        'INVIATO IN VALUTA', 'TOTALE AL DESTINATARIO',
+        'TASSE DI', 'COMMISSIONE', 'TASSO DI', 'TASSO DI CAMBIO',
+        'SPREAD', 'ALTRE SPESE', 'IMPOSTA'
+    ]
+
+    for linea in lineas:
+        lu = linea.upper()
+
+        # Ignorar si contiene keyword de ignorar
+        if any(ig.upper() in lu for ig in keywords_ignorar):
+            continue
+
+        # Si contiene keyword válido y EUR/€/EURO
+        if any(kw.upper() in lu for kw in keywords_validos):
+            m = re.search(r'(?:EUR|EURO|€)\s*([\d\.,]+)|([\d\.,]+)\s*(?:EUR|EURO|€)', linea, re.IGNORECASE)
+            if m:
+                val = m.group(1) or m.group(2)
+                parsed = _parse_monto(val)
+                if parsed and parsed > 0:
+                    return parsed
+
+    # Fallback: buscar cualquier línea con EUR/€ que NO tenga keywords de ignorar
+    for linea in lineas:
+        lu = linea.upper()
+        if any(ig.upper() in lu for ig in keywords_ignorar):
+            continue
+        if 'EUR' in lu or 'EURO' in lu or '€' in linea:
+            m = re.search(r'(?:EUR|EURO|€)\s*([\d\.,]+)|([\d\.,]+)\s*(?:EUR|EURO|€)', linea, re.IGNORECASE)
+            if m:
+                val = m.group(1) or m.group(2)
+                parsed = _parse_monto(val)
+                if parsed and parsed > 0 and parsed < 50000:
+                    return parsed
+
+    return None
+
+
+def _parse_monto(raw_str):
+    """
+    Convierte un string de monto europeo a float.
+    500.00 -> 500.0, 1.250,00 -> 1250.0, 999,00 -> 999.0
+    """
+    if not raw_str:
+        return None
+    s = raw_str.strip()
+    has_dot = '.' in s
+    has_comma = ',' in s
+
+    if has_dot and has_comma:
+        last_dot = s.rfind('.')
+        last_comma = s.rfind(',')
+        if last_comma > last_dot:
+            s = s.replace('.', '').replace(',', '.')
+        else:
+            s = s.replace(',', '')
+    elif has_comma:
+        parts = s.split(',')
+        if len(parts) == 2 and len(parts[-1]) <= 2:
+            s = s.replace(',', '.')
+        else:
+            s = s.replace(',', '')
+    elif has_dot:
+        parts = s.split('.')
+        if len(parts) == 2 and len(parts[-1]) <= 2:
+            pass  # ya está bien
+        else:
+            s = s.replace('.', '')
+
+    try:
+        val = float(s)
+        if 0 < val < 50000:
+            return val
+        return None
+    except ValueError:
+        return None
+
+
+def _extraer_fecha_nacimiento(lineas):
+    """Extrae fecha de nacimiento del remitente."""
+    keywords = [
+        'DATA NASCITA:', 'DATA DI NASCITA:', 'DATA DI NASCITA',
+        'DATA NASCITA'
+    ]
+    for linea in lineas:
+        lu = linea.upper()
+        for kw in keywords:
+            if kw in lu:
+                val = linea.split(':', 1)[-1].strip()
+                if val:
+                    return val
+    return None
+
+
+def _detectar_servicio(texto):
+    """Detecta el servicio de transferencia a partir del texto."""
+    tu = texto.upper()
+    if 'RIA ' in tu or 'RIA\n' in tu or 'RIAMONEY' in tu:
+        return 'Ria Money Transfer'
+    if 'WESTERN UNION' in tu or 'WU ' in tu:
+        return 'Western Union'
+    if 'MONEYGRAM' in tu:
+        return 'MoneyGram'
+    if 'MONDIAL' in tu or 'MONDIAL BONY' in tu:
+        return 'Mondial Bony'
+    if 'MONTY' in tu or 'MONTY GLOBAL' in tu:
+        return 'Monty'
+    return None
