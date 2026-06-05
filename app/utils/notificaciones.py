@@ -71,12 +71,16 @@ def generar_notificaciones():
         )
 
 def _crear_notificacion_si_no_existe(cliente_id, tipo, mensaje):
-    """Crea una notificación solo si no existe una igual no leída recientemente."""
-    # Verificar si ya existe una notificación no leída del mismo tipo para este cliente
-    existente = Notificacion.query.filter_by(
-        cliente_id=cliente_id,
-        tipo=tipo,
-        leida=False
+    """Crea una notificación solo si no existe una del mismo tipo creada en las últimas 24h."""
+    desde = datetime.utcnow() - timedelta(hours=24)
+    
+    # Verificar si ya existe una notificación del mismo tipo para este cliente
+    # creada en las últimas 24h (leída o no), para evitar regenerar alertas
+    # inmediatamente después de que el usuario las marque como leídas.
+    existente = Notificacion.query.filter(
+        Notificacion.cliente_id == cliente_id,
+        Notificacion.tipo == tipo,
+        Notificacion.fecha_creacion >= desde
     ).first()
     
     if not existente:
