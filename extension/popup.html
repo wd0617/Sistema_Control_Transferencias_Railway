@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <style>
     body {
-      width: 280px;
+      width: 320px;
       padding: 16px;
       font-family: system-ui, -apple-system, sans-serif;
       margin: 0;
@@ -12,6 +12,11 @@
     h3 {
       margin: 0 0 12px 0;
       font-size: 16px;
+    }
+    p.site {
+      font-size: 12px;
+      color: #666;
+      margin: 0 0 12px 0;
     }
     button {
       width: 100%;
@@ -23,6 +28,7 @@
       cursor: pointer;
       background: linear-gradient(135deg, #ff8c00, #ffb700);
       color: #000;
+      margin-bottom: 8px;
     }
     button:hover {
       opacity: 0.9;
@@ -30,6 +36,10 @@
     button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+    button.secondary {
+      background: #e9ecef;
+      color: #333;
     }
     #status {
       margin-top: 12px;
@@ -39,14 +49,46 @@
     }
     .error { color: #dc3545; }
     .success { color: #198754; }
+    .manual-box {
+      display: none;
+      margin-top: 12px;
+    }
+    .manual-box.visible {
+      display: block;
+    }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px;
+      font-size: 13px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    label {
+      font-size: 12px;
+      color: #444;
+      display: block;
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
   <h3>⚡ Registro Rápido</h3>
-  <p style="font-size:12px;color:#666;margin:0 0 12px 0;">
+  <p class="site">
     Estás en: <strong id="site">...</strong>
   </p>
-  <button id="btnEnviar">Enviar recibo al sistema</button>
+
+  <button id="btnEnviar">📋 Enviar recibo automático</button>
+  <button id="btnToggleManual" class="secondary">✏️ Pegar recibo manualmente</button>
+
+  <div id="manualBox" class="manual-box">
+    <label for="manualText">Pegá aquí el texto del recibo (útil para ventanas emergentes o apps como Monty):</label>
+    <textarea id="manualText" placeholder="Ej: Mittente: JUAN PEREZ&#10;Importo: 500,00 EUR&#10;Documento: PA123456..."></textarea>
+    <button id="btnEnviarManual" style="margin-top:8px;">📤 Enviar texto manual</button>
+  </div>
+
   <div id="status"></div>
 
   <script src="popup.js"></script>
