@@ -9,6 +9,42 @@ from app.utils.notificaciones import generar_notificaciones, contar_notificacion
 
 main = Blueprint('main', __name__)
 
+@main.route('/debug-db')
+def debug_db():
+    """Endpoint temporal de diagnostico - PUBLICO"""
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+        
+        result = {
+            'tablas_en_db': tables,
+            'productos_existe': 'productos' in tables,
+            'movimientos_producto_existe': 'movimientos_producto' in tables,
+        }
+        
+        if 'clientes' in tables:
+            cols = [c['name'] for c in inspector.get_columns('clientes')]
+            result['columnas_clientes'] = cols
+            result['faltan_columnas_documento'] = [
+                c for c in ['tipo_documento', 'documento_fecha_emision', 'documento_fecha_vencimiento']
+                if c not in cols
+            ]
+        
+        if 'productos' in tables:
+            try:
+                from app.models.producto import Producto
+                count = Producto.query.count()
+                result['productos_count'] = count
+            except Exception as e:
+                result['productos_query_error'] = str(e)
+        else:
+            result['productos_query_error'] = 'Tabla productos no existe'
+            
+        return result
+    except Exception as e:
+        return {'error': str(e), 'traceback': str(__import__('traceback').format_exc())}
+
 # Función auxiliar para manejar fechas de forma segura
 def safe_strftime(fecha_obj, formato='%Y-%m-%d'):
     """Convierte una fecha a string de forma segura.
