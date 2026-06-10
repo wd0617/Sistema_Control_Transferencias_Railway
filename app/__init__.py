@@ -34,6 +34,7 @@ def create_app(config_class=Config):
     from app.routes.documentos import documentos as documentos_blueprint
     from app.routes.data_management import data_mgmt as data_mgmt_blueprint
     from app.routes.notificaciones import notificaciones as notificaciones_blueprint
+    from app.routes.productos import productos as productos_blueprint
     
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
@@ -44,10 +45,7 @@ def create_app(config_class=Config):
     app.register_blueprint(documentos_blueprint, url_prefix='/documentos')
     app.register_blueprint(data_mgmt_blueprint, url_prefix='/datos')
     app.register_blueprint(notificaciones_blueprint, url_prefix='/notificaciones')
-    
-    # Crear la base de datos si no existe
-    with app.app_context():
-        db.create_all()
+    app.register_blueprint(productos_blueprint, url_prefix='/productos')
     
     # Inyectar contador de notificaciones en todos los templates
     @app.context_processor

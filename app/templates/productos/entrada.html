@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Entrada de Stock{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="fas fa-arrow-down me-2"></i>Entrada de Stock</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('productos.entrada') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Producto</label>
+                        <select name="producto_id" class="form-select" required>
+                            <option value="">Seleccionar...</option>
+                            {% for p in productos %}
+                            <option value="{{ p.id }}" {% if request.args.get('producto_id')|int == p.id %}selected{% endif %}>
+                                {{ p.nombre }} — Stock: {{ "%.2f"|format(p.stock_actual) }} {{ p.label_medida() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cantidad que entra</label>
+                        <input type="text" name="cantidad" class="form-control" required placeholder="Ej: 10 o 2,5">
+                        <div class="form-text">Usá coma o punto para decimales.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notas (opcional)</label>
+                        <input type="text" name="notas" class="form-control" placeholder="Ej: Recepción viernes">
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>Registrar entrada
+                        </button>
+                        <a href="{{ url_for('productos.lista') }}" class="btn btn-outline-secondary mt-2">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

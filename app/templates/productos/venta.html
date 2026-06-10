@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Venta de Producto{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0"><i class="fas fa-arrow-up me-2"></i>Venta de Producto</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('productos.venta') }}" id="formVenta">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Producto</label>
+                        <select name="producto_id" id="producto_id" class="form-select" required onchange="actualizarTotal()">
+                            <option value="" data-precio="0">Seleccionar...</option>
+                            {% for p in productos %}
+                            <option value="{{ p.id }}" data-precio="{{ p.precio }}" data-stock="{{ p.stock_actual }}" data-medida="{{ p.label_medida() }}"
+                                {% if request.args.get('producto_id')|int == p.id %}selected{% endif %}>
+                                {{ p.nombre }} — {{ "%.2f"|format(p.precio) }} €/{{ p.label_medida() }} (Stock: {{ "%.2f"|format(p.stock_actual) }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cantidad / Peso</label>
+                        <input type="text" name="cantidad" id="cantidad" class="form-control" required placeholder="Ej: 2 o 0,5" oninput="actualizarTotal()">
+                        <div class="form-text">Usá coma o punto para decimales.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notas (opcional)</label>
+                        <input type="text" name="notas" class="form-control" placeholder="Ej: Cliente habitual">
+                    </div>
+
+                    <div class="alert alert-info">
+                        <strong>Total estimado:</strong> <span id="totalDisplay">0,00</span> €
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-check me-1"></i>Registrar venta
+                        </button>
+                        <a href="{{ url_for('productos.lista') }}" class="btn btn-outline-secondary mt-2">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function actualizarTotal() {
+    const select = document.getElementById('producto_id');
+    const cantidadInput = document.getElementById('cantidad');
+    const totalDisplay = document.getElementById('totalDisplay');
+
+    const option = select.options[select.selectedIndex];
+    const precio = parseFloat(option.dataset.precio) || 0;
+    const cantidad = parseFloat(cantidadInput.value.replace(',', '.')) || 0;
+
+    const total = precio * cantidad;
+    totalDisplay.textContent = total.toFixed(2).replace('.', ',');
+}
+</script>
+{% endblock %}
