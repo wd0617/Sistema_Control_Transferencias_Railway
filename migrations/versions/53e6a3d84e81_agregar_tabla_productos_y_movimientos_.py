@@ -27,7 +27,8 @@ def upgrade():
         sa.Column('activo', sa.Boolean(), nullable=True),
         sa.Column('creado_en', sa.DateTime(), nullable=True),
         sa.Column('actualizado_en', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
+        if_not_exists=True
     )
     op.create_table('movimientos_producto',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -41,7 +42,8 @@ def upgrade():
         sa.Column('usuario_id', sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(['producto_id'], ['productos.id'], ),
         sa.ForeignKeyConstraint(['usuario_id'], ['users.id'], ),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
+        if_not_exists=True
     )
     with op.batch_alter_table('clientes', schema=None) as batch_op:
         batch_op.add_column(sa.Column('tipo_documento', sa.String(length=50), nullable=True))
