@@ -266,25 +266,23 @@ def registro_rapido():
         cliente = None
         if cliente_id:
             cliente = Cliente.query.get(cliente_id)
-        if not cliente and documento:
-            cliente = Cliente.query.filter(Cliente.documento.ilike(documento)).first()
-        
+
         if not cliente:
             if not nombre or not apellido or not documento:
                 flash('Faltan datos del cliente', 'danger')
                 return redirect(url_for('transacciones.registro_rapido'))
-            cliente = Cliente(
+            from app.utils.cliente_utils import obtener_o_crear_cliente_con_documento
+            cliente, es_nuevo = obtener_o_crear_cliente_con_documento(
                 nombre=nombre,
                 apellido=apellido,
                 documento=documento,
-                telefono=telefono or None,
-                fecha_nacimiento=date(1990, 1, 1),
-                ultima_visita=datetime.utcnow()
+                telefono=telefono,
+                fecha_nacimiento=date(1990, 1, 1)
             )
-            db.session.add(cliente)
-            db.session.flush()
-            cliente.servicios.append(servicio)
-        else:
+            if es_nuevo:
+                cliente.servicios.append(servicio)
+
+        if cliente:
             cliente.ultima_visita = datetime.utcnow()
             if servicio not in cliente.servicios:
                 cliente.servicios.append(servicio)

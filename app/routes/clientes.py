@@ -82,12 +82,6 @@ def nuevo():
         # Para evitar errores, ignoramos los campos que no existen en el modelo
         # (nacionalidad, email, direccion, notas)
         
-        # Verificar si el cliente ya existe
-        cliente_existente = Cliente.query.filter_by(documento=documento).first()
-        if cliente_existente:
-            flash('Ya existe un cliente con ese documento', 'danger')
-            return redirect(url_for('clientes.nuevo'))
-        
         # Convertir fecha de nacimiento
         fecha_nacimiento_obj = None
         if fecha_nacimiento:
@@ -99,7 +93,7 @@ def nuevo():
         else:
             flash('La fecha de nacimiento es obligatoria', 'danger')
             return redirect(url_for('clientes.nuevo'))
-        
+
         # Convertir fechas del documento
         doc_emision_obj = None
         if documento_fecha_emision:
@@ -107,38 +101,39 @@ def nuevo():
                 doc_emision_obj = datetime.strptime(documento_fecha_emision, '%Y-%m-%d').date()
             except ValueError:
                 pass
-        
+
         doc_vencimiento_obj = None
         if documento_fecha_vencimiento:
             try:
                 doc_vencimiento_obj = datetime.strptime(documento_fecha_vencimiento, '%Y-%m-%d').date()
             except ValueError:
                 pass
-        
-        # Crear nuevo cliente
-        nuevo_cliente = Cliente(
+
+        # Usar helper que evita duplicados y gestiona documentos
+        from app.utils.cliente_utils import obtener_o_crear_cliente_con_documento
+        cliente, es_nuevo = obtener_o_crear_cliente_con_documento(
             nombre=nombre,
             apellido=apellido,
             documento=documento,
-            tipo_documento=tipo_documento,
-            documento_fecha_emision=doc_emision_obj,
-            documento_fecha_vencimiento=doc_vencimiento_obj,
             telefono=telefono,
+            tipo_documento=tipo_documento,
             fecha_nacimiento=fecha_nacimiento_obj,
-            fecha_registro=datetime.now(),
-            ultima_visita=datetime.now()
+            doc_fecha_emision=doc_emision_obj,
+            doc_fecha_vencimiento=doc_vencimiento_obj
         )
-        
-        db.session.add(nuevo_cliente)
-        db.session.flush()  # Para obtener el ID asignado
-        
-        # Agregar servicios al cliente
+
+        if not es_nuevo:
+            db.session.commit()
+            flash('El cliente ya existía. Se actualizaron los datos del documento.', 'info')
+            return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+
+        # Agregar servicios al cliente nuevo
         servicios_ids = request.form.getlist('servicios')
         for servicio_id in servicios_ids:
             servicio = Servicio.query.get(servicio_id)
             if servicio:
-                nuevo_cliente.servicios.append(servicio)
-        
+                cliente.servicios.append(servicio)
+
         db.session.commit()
         flash('Cliente registrado correctamente', 'success')
         return redirect(url_for('clientes.lista'))
