@@ -47,6 +47,10 @@ def create_app(config_class=Config):
     app.register_blueprint(notificaciones_blueprint, url_prefix='/notificaciones')
     app.register_blueprint(productos_blueprint, url_prefix='/productos')
     
+    # Crear tablas que no existan (complementa flask db upgrade)
+    with app.app_context():
+        db.create_all()
+    
     # Inyectar contador de notificaciones en todos los templates
     @app.context_processor
     def inject_notificaciones():
