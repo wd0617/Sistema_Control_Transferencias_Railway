@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_from_directory
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
@@ -7,6 +7,13 @@ from app.models.producto import Producto, MovimientoProducto
 from datetime import datetime, timedelta
 
 productos = Blueprint('productos', __name__)
+
+
+@productos.route('/uploads/<path:filename>')
+@login_required
+def uploaded_file(filename):
+    """Sirve archivos subidos (fotos de productos)."""
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
 
 ALLOWED_IMG = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 

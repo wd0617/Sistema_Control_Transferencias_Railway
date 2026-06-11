@@ -46,7 +46,7 @@
                         <label class="form-label">Foto actual</label>
                         {% if producto.foto %}
                         <div class="mb-2">
-                            <img src="{{ url_for('static', filename='uploads/' + producto.foto) }}" alt="Foto" class="img-thumbnail" style="max-height: 150px;">
+                            <img src="{{ url_for('productos.uploaded_file', filename=producto.foto) }}" alt="Foto" class="img-thumbnail" style="max-height: 150px;">
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="eliminar_foto" id="eliminar_foto" value="1">

@@ -55,7 +55,7 @@
             <div class="col">
                 <div class="card h-100 shadow-sm">
                     {% if p.foto %}
-                    <img src="{{ url_for('static', filename='uploads/' + p.foto) }}" class="card-img-top" alt="{{ p.nombre }}" style="height: 160px; object-fit: cover;">
+                    <img src="{{ url_for('productos.uploaded_file', filename=p.foto) }}" class="card-img-top" alt="{{ p.nombre }}" style="height: 160px; object-fit: cover;">
                     {% else %}
                     <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 160px;">
                         <i class="fas fa-box fa-3x text-secondary"></i>
@@ -126,7 +126,7 @@
                             <tr>
                                 <td>
                                     {% if p.foto %}
-                                    <img src="{{ url_for('static', filename='uploads/' + p.foto) }}" alt="{{ p.nombre }}" class="rounded" style="width: 50px; height: 50px; object-fit: cover;">
+                                    <img src="{{ url_for('productos.uploaded_file', filename=p.foto) }}" alt="{{ p.nombre }}" class="rounded" style="width: 50px; height: 50px; object-fit: cover;">
                                     {% else %}
                                     <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
                                         <i class="fas fa-box text-secondary"></i>
