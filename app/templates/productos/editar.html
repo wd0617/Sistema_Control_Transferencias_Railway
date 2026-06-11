@@ -10,12 +10,21 @@
                 <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Editar Producto</h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('productos.editar', producto_id=producto.id) }}">
+                <form method="POST" action="{{ url_for('productos.editar', producto_id=producto.id) }}" enctype="multipart/form-data">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">Nombre</label>
                         <input type="text" name="nombre" class="form-control" value="{{ producto.nombre }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Categoría</label>
+                        <select name="categoria" class="form-select">
+                            {% for val, label in categorias %}
+                            <option value="{{ val }}" {% if producto.categoria == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
 
                     <div class="mb-3">
@@ -31,6 +40,27 @@
                             <span class="input-group-text">€</span>
                         </div>
                         <div class="form-text">Las ventas futuras usarán este precio. Las ventas anteriores quedan con el precio de ese momento.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Foto actual</label>
+                        {% if producto.foto %}
+                        <div class="mb-2">
+                            <img src="{{ url_for('static', filename='uploads/' + producto.foto) }}" alt="Foto" class="img-thumbnail" style="max-height: 150px;">
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eliminar_foto" id="eliminar_foto" value="1">
+                            <label class="form-check-label" for="eliminar_foto">Eliminar foto actual</label>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">Sin foto</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Cambiar foto</label>
+                        <input type="file" name="foto" class="form-control" accept="image/*">
+                        <div class="form-text">Formatos: PNG, JPG, JPEG, GIF, WEBP.</div>
                     </div>
 
                     <div class="d-grid">

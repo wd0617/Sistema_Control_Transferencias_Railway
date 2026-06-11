@@ -5,11 +5,20 @@ from app import db
 class Producto(db.Model):
     __tablename__ = 'productos'
 
+    CATEGORIAS = [
+        ('frescos', 'Frescos (naturales por kg)'),
+        ('procesados', 'Procesados (por unidad)'),
+        ('cosmetica_ropa', 'Cosmética / Ropa'),
+        ('servicios', 'Servicios'),
+    ]
+
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
+    categoria = db.Column(db.String(30), default='procesados')
     tipo_medida = db.Column(db.String(20), default='unidad')  # 'unidad' | 'peso'
     precio = db.Column(db.Float, nullable=False)
     stock_actual = db.Column(db.Float, default=0)
+    foto = db.Column(db.String(255))
     activo = db.Column(db.Boolean, default=True)
     creado_en = db.Column(db.DateTime, default=datetime.utcnow)
     actualizado_en = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -22,6 +31,12 @@ class Producto(db.Model):
 
     def label_medida(self):
         return 'kg' if self.tipo_medida == 'peso' else 'u'
+
+    def label_categoria(self):
+        for val, label in self.CATEGORIAS:
+            if val == self.categoria:
+                return label
+        return self.categoria
 
 
 class MovimientoProducto(db.Model):
