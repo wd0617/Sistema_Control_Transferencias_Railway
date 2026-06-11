@@ -1,6 +1,41 @@
 {% extends 'base.html' %}
 
-{% block title %}Entrada de Stock{% endblock %}
+{% block title %}Entrada de Stock{% block extra_js %}
+<script>
+(function() {
+    const select = document.querySelector('select[name="producto_id"]');
+    const labelCantidad = document.getElementById('labelCantidad');
+    const helpCantidad = document.getElementById('helpCantidad');
+    const campoUnidades = document.getElementById('campoUnidades');
+
+    function actualizarLabels() {
+        const option = select.options[select.selectedIndex];
+        const medida = option.dataset.medida || '';
+        if (medida === 'peso') {
+            labelCantidad.textContent = 'kg que entran';
+            helpCantidad.textContent = 'Usá coma o punto para decimales. Ej: 2,5';
+            campoUnidades.style.display = 'block';
+        } else {
+            labelCantidad.textContent = 'Cantidad que entra';
+            helpCantidad.textContent = 'Usá coma o punto para decimales.';
+            campoUnidades.style.display = 'none';
+        }
+    }
+
+    if (select) {
+        // Agregar data-medida a cada option
+        select.querySelectorAll('option').forEach(opt => {
+            if (opt.value) {
+                const text = opt.textContent.toLowerCase();
+                opt.dataset.medida = text.includes('kg') ? 'peso' : 'unidad';
+            }
+        });
+        select.addEventListener('change', actualizarLabels);
+        actualizarLabels();
+    }
+})();
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -26,9 +61,15 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Cantidad que entra</label>
+                        <label class="form-label fw-bold" id="labelCantidad">Cantidad que entra</label>
                         <input type="text" name="cantidad" class="form-control" required placeholder="Ej: 10 o 2,5">
-                        <div class="form-text">Usá coma o punto para decimales.</div>
+                        <div class="form-text" id="helpCantidad">Usá coma o punto para decimales.</div>
+                    </div>
+
+                    <div class="mb-3" id="campoUnidades" style="display:none;">
+                        <label class="form-label">Unidades (opcional)</label>
+                        <input type="number" name="unidades" class="form-control" min="1" placeholder="Ej: 3 piezas">
+                        <div class="form-text">Cuántas piezas/unidades equivalen a esos kg.</div>
                     </div>
 
                     <div class="mb-3">

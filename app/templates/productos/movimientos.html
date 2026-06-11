@@ -57,6 +57,7 @@
                                 <th>Tipo</th>
                                 <th>Producto</th>
                                 <th>Cantidad</th>
+                                <th>Unidades</th>
                                 <th>Precio unit.</th>
                                 <th>Total</th>
                                 <th>Notas</th>
@@ -75,6 +76,13 @@
                                 </td>
                                 <td><strong>{{ m.producto.nombre }}</strong></td>
                                 <td>{{ "%.2f"|format(m.cantidad) }} {{ m.producto.label_medida() }}</td>
+                                <td>
+                                    {% if m.unidades %}
+                                        {{ m.unidades }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if m.precio_unitario_momento %}
                                         {{ "%.2f"|format(m.precio_unitario_momento) }} €

@@ -169,10 +169,14 @@ def entrada():
         producto = Producto.query.get_or_404(producto_id)
         producto.stock_actual += cantidad
 
+        unidades = request.form.get('unidades', '').strip()
+        unidades_int = int(unidades) if unidades.isdigit() else None
+
         movimiento = MovimientoProducto(
             producto_id=producto.id,
             tipo='entrada',
             cantidad=cantidad,
+            unidades=unidades_int,
             notas=notas or None,
             usuario_id=current_user.id
         )
@@ -218,12 +222,16 @@ def venta():
         producto.stock_actual -= cantidad
         total = round(cantidad * producto.precio, 2)
 
+        unidades = request.form.get('unidades', '').strip()
+        unidades_int = int(unidades) if unidades.isdigit() else None
+
         movimiento = MovimientoProducto(
             producto_id=producto.id,
             tipo='venta',
             cantidad=cantidad,
             precio_unitario_momento=producto.precio,
             total=total,
+            unidades=unidades_int,
             notas=notas or None,
             usuario_id=current_user.id
         )

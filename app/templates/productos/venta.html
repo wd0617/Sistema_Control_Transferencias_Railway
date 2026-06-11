@@ -27,9 +27,15 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Cantidad / Peso</label>
+                        <label class="form-label fw-bold" id="labelCantidad">Cantidad / Peso</label>
                         <input type="text" name="cantidad" id="cantidad" class="form-control" required placeholder="Ej: 2 o 0,5" oninput="actualizarTotal()">
-                        <div class="form-text">Usá coma o punto para decimales.</div>
+                        <div class="form-text" id="helpCantidad">Usá coma o punto para decimales.</div>
+                    </div>
+
+                    <div class="mb-3" id="campoUnidades" style="display:none;">
+                        <label class="form-label">Unidades vendidas (opcional)</label>
+                        <input type="number" name="unidades" class="form-control" min="1" placeholder="Ej: 3 piezas">
+                        <div class="form-text">Cuántas piezas/unidades equivalen a esos kg.</div>
                     </div>
 
                     <div class="mb-3">
@@ -60,13 +66,39 @@ function actualizarTotal() {
     const select = document.getElementById('producto_id');
     const cantidadInput = document.getElementById('cantidad');
     const totalDisplay = document.getElementById('totalDisplay');
+    const labelCantidad = document.getElementById('labelCantidad');
+    const helpCantidad = document.getElementById('helpCantidad');
+    const campoUnidades = document.getElementById('campoUnidades');
 
     const option = select.options[select.selectedIndex];
     const precio = parseFloat(option.dataset.precio) || 0;
     const cantidad = parseFloat(cantidadInput.value.replace(',', '.')) || 0;
+    const medida = option.dataset.medida || '';
+
+    if (medida === 'peso') {
+        labelCantidad.textContent = 'kg vendidos';
+        helpCantidad.textContent = 'Usá coma o punto para decimales. Ej: 1,2';
+        campoUnidades.style.display = 'block';
+    } else {
+        labelCantidad.textContent = 'Cantidad';
+        helpCantidad.textContent = 'Usá coma o punto para decimales.';
+        campoUnidades.style.display = 'none';
+    }
 
     const total = precio * cantidad;
     totalDisplay.textContent = total.toFixed(2).replace('.', ',');
 }
+
+// Inicializar labels al cargar
+(function() {
+    const select = document.getElementById('producto_id');
+    select.querySelectorAll('option').forEach(opt => {
+        if (opt.value) {
+            const text = opt.textContent.toLowerCase();
+            opt.dataset.medida = text.includes('kg') ? 'peso' : 'unidad';
+        }
+    });
+    actualizarTotal();
+})();
 </script>
 {% endblock %}

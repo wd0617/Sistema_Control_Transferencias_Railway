@@ -48,6 +48,7 @@ class MovimientoProducto(db.Model):
     cantidad = db.Column(db.Float, nullable=False)
     precio_unitario_momento = db.Column(db.Float)
     total = db.Column(db.Float)
+    unidades = db.Column(db.Integer)  # Solo para productos por peso: cuántas piezas/unidades
     fecha = db.Column(db.DateTime, default=datetime.utcnow)
     notas = db.Column(db.String(255))
     usuario_id = db.Column(db.Integer, db.ForeignKey('users.id'))
