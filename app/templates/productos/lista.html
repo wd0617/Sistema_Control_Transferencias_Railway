@@ -23,16 +23,28 @@
         </div>
 
         <!-- Filtros por categoría -->
-        <div class="mb-3">
-            <div class="btn-group flex-wrap" role="group">
-                <a href="{{ url_for('productos.lista', vista=vista) }}" class="btn btn-outline-primary {% if not categoria_activa %}active{% endif %}">
-                    Todos
+        <div class="mb-4">
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ url_for('productos.lista', vista=vista) }}"
+                   class="btn btn-lg fw-bold px-4 {% if not categoria_activa %}btn-primary shadow{% else %}btn-outline-primary{% endif %}">
+                    <i class="fas fa-th-large me-2"></i>Todos
                 </a>
-                {% for val, label in categorias %}
-                <a href="{{ url_for('productos.lista', categoria=val, vista=vista) }}" class="btn btn-outline-primary {% if categoria_activa == val %}active{% endif %}">
-                    {{ label }}
+                <a href="{{ url_for('productos.lista', categoria='frescos', vista=vista) }}"
+                   class="btn btn-lg fw-bold px-4 {% if categoria_activa == 'frescos' %}btn-success shadow{% else %}btn-outline-success{% endif %}">
+                    <i class="fas fa-apple-alt me-2"></i>Frescos
                 </a>
-                {% endfor %}
+                <a href="{{ url_for('productos.lista', categoria='procesados', vista=vista) }}"
+                   class="btn btn-lg fw-bold px-4 {% if categoria_activa == 'procesados' %}btn-warning shadow{% else %}btn-outline-warning{% endif %}">
+                    <i class="fas fa-box me-2"></i>Procesados
+                </a>
+                <a href="{{ url_for('productos.lista', categoria='cosmetica_ropa', vista=vista) }}"
+                   class="btn btn-lg fw-bold px-4 {% if categoria_activa == 'cosmetica_ropa' %}btn-info shadow{% else %}btn-outline-info{% endif %}">
+                    <i class="fas fa-tshirt me-2"></i>Cosmética / Ropa
+                </a>
+                <a href="{{ url_for('productos.lista', categoria='servicios', vista=vista) }}"
+                   class="btn btn-lg fw-bold px-4 {% if categoria_activa == 'servicios' %}btn-secondary shadow{% else %}btn-outline-secondary{% endif %}">
+                    <i class="fas fa-hand-holding-usd me-2"></i>Servicios
+                </a>
             </div>
         </div>
 
