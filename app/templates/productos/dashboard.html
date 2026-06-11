@@ -27,7 +27,7 @@
                     <div class="card-body text-center">
                         <i class="fas fa-euro-sign fa-2x mb-2 opacity-75"></i>
                         <h5 class="card-title">Vendido hoy</h5>
-                        <h3 class="mb-0">{{ "%.2f"|format(total_vendido_hoy) }} €</h3>
+                        <h3 class="mb-0">{{ total_vendido_hoy|smart_money }}</h3>
                         <small>{{ ahora.strftime('%d/%m/%Y') }}</small>
                     </div>
                 </div>
@@ -115,7 +115,7 @@
                             <tr>
                                 <td><strong>{{ p.nombre }}</strong></td>
                                 <td><span class="badge bg-light text-dark border">{{ p.label_categoria() }}</span></td>
-                                <td>{{ "%.2f"|format(p.precio) }} €</td>
+                                <td>{{ p.precio|smart_money }}</td>
                                 <td><span class="badge bg-danger">AGOTADO</span></td>
                                 <td class="text-end">
                                     <a href="{{ url_for('productos.entrada') }}?producto_id={{ p.id }}" class="btn btn-sm btn-success">
@@ -158,8 +158,8 @@
                             <tr>
                                 <td>{{ v.fecha.strftime('%H:%M') }}</td>
                                 <td><strong>{{ v.producto.nombre }}</strong></td>
-                                <td>{{ "%.2f"|format(v.cantidad) }} {{ v.producto.label_medida() }}</td>
-                                <td><strong>{{ "%.2f"|format(v.total or 0) }} €</strong></td>
+                                <td>{{ v.cantidad|smart_float }} {{ v.producto.label_medida() }}</td>
+                                <td><strong>{{ (v.total or 0)|smart_money }}</strong></td>
                             </tr>
                             {% endfor %}
                         </tbody>

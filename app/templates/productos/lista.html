@@ -63,7 +63,7 @@
                     {% endif %}
                     <div class="card-body d-flex flex-column">
                         {% if p.stock_actual <= 0 %}
-                        <div class="badge bg-danger mb-2 fs-6"><i class="fas fa-times-circle me-1"></i>AGOTADO</div>
+                        <div class="badge bg-danger mb-2 fs-4 px-3 py-2"><i class="fas fa-times-circle me-1"></i>AGOTADO</div>
                         {% elif p.stock_actual < 5 %}
                         <div class="badge bg-warning text-dark mb-2"><i class="fas fa-bell me-1"></i>Stock bajo</div>
                         {% endif %}
@@ -76,10 +76,10 @@
                                 <span class="badge bg-secondary">por unidad</span>
                             {% endif %}
                         </p>
-                        <p class="card-text fw-bold">{{ "%.2f"|format(p.precio) }} €</p>
+                        <p class="card-text fw-bold">{{ p.precio|smart_money }}</p>
                         <p class="card-text">
                             <span class="badge {% if p.stock_actual <= 0 %}bg-danger{% elif p.stock_actual < 5 %}bg-warning text-dark{% else %}bg-success{% endif %}">
-                                Stock: {{ "%.2f"|format(p.stock_actual) }} {{ p.label_medida() }}
+                                Stock: {{ p.stock_actual|smart_float }} {{ p.label_medida() }}
                             </span>
                         </p>
                         <div class="mt-auto d-flex gap-1 flex-wrap">
@@ -155,14 +155,14 @@
                                         <span class="badge bg-secondary">por unidad</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ "%.2f"|format(p.precio) }} €</td>
+                                <td>{{ p.precio|smart_money }}</td>
                                 <td>
                                     {% if p.stock_actual <= 0 %}
-                                    <span class="badge bg-danger fs-6"><i class="fas fa-times-circle me-1"></i>AGOTADO</span>
+                                    <span class="badge bg-danger fs-4 px-3 py-2"><i class="fas fa-times-circle me-1"></i>AGOTADO</span>
                                     {% elif p.stock_actual < 5 %}
-                                    <span class="badge bg-warning text-dark"><i class="fas fa-bell me-1"></i>{{ "%.2f"|format(p.stock_actual) }} {{ p.label_medida() }}</span>
+                                    <span class="badge bg-warning text-dark"><i class="fas fa-bell me-1"></i>{{ p.stock_actual|smart_float }} {{ p.label_medida() }}</span>
                                     {% else %}
-                                    <span class="badge bg-success">{{ "%.2f"|format(p.stock_actual) }} {{ p.label_medida() }}</span>
+                                    <span class="badge bg-success">{{ p.stock_actual|smart_float }} {{ p.label_medida() }}</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">

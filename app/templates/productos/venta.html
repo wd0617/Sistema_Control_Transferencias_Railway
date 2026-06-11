@@ -20,7 +20,7 @@
                             {% for p in productos %}
                             <option value="{{ p.id }}" data-precio="{{ p.precio }}" data-stock="{{ p.stock_actual }}" data-medida="{{ p.label_medida() }}"
                                 {% if request.args.get('producto_id')|int == p.id %}selected{% endif %}>
-                                {{ p.nombre }} — {{ "%.2f"|format(p.precio) }} €/{{ p.label_medida() }} (Stock: {{ "%.2f"|format(p.stock_actual) }})
+                                {{ p.nombre }} — {{ p.precio|smart_money }}/{{ p.label_medida() }} (Stock: {{ p.stock_actual|smart_float }})
                             </option>
                             {% endfor %}
                         </select>

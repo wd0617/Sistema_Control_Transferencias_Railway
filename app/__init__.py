@@ -102,5 +102,30 @@ def create_app(config_class=Config):
         from datetime import datetime
         return {'now': datetime.now()}
     
+    # Filtros para mostrar números limpios (sin .00 innecesarios)
+    @app.template_filter('smart_float')
+    def smart_float_filter(value):
+        if value is None:
+            return ''
+        try:
+            f = float(value)
+            if f == int(f):
+                return str(int(f))
+            return "{:.2f}".format(f)
+        except (TypeError, ValueError):
+            return value
+    
+    @app.template_filter('smart_money')
+    def smart_money_filter(value):
+        if value is None:
+            return '0 €'
+        try:
+            f = float(value)
+            if f == int(f):
+                return "{} €".format(int(f))
+            return "{:.2f} €".format(f)
+        except (TypeError, ValueError):
+            return value
+    
     return app
 

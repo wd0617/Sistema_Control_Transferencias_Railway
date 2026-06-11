@@ -47,13 +47,13 @@
             <div class="col-md-6">
                 <div class="alert alert-success mb-0 h-100 d-flex flex-column justify-content-center">
                     <strong><i class="fas fa-euro-sign me-2"></i>Total vendido hoy:</strong>
-                    <span class="fs-4">{{ "%.2f"|format(total_hoy) }} €</span>
+                    <span class="fs-4">{{ total_hoy|smart_money }}</span>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="alert alert-info mb-0 h-100 d-flex flex-column justify-content-center">
                     <strong><i class="fas fa-filter me-2"></i>Total en ventas (filtrado):</strong>
-                    <span class="fs-4">{{ "%.2f"|format(total_ventas) }} €</span>
+                    <span class="fs-4">{{ total_ventas|smart_money }}</span>
                 </div>
             </div>
         </div>
@@ -89,7 +89,7 @@
                                     {% endif %}
                                 </td>
                                 <td><strong>{{ m.producto.nombre }}</strong></td>
-                                <td>{{ "%.2f"|format(m.cantidad) }} {{ m.producto.label_medida() }}</td>
+                                <td>{{ m.cantidad|smart_float }} {{ m.producto.label_medida() }}</td>
                                 <td>
                                     {% if m.unidades %}
                                         {{ m.unidades }}
@@ -99,14 +99,14 @@
                                 </td>
                                 <td>
                                     {% if m.precio_unitario_momento %}
-                                        {{ "%.2f"|format(m.precio_unitario_momento) }} €
+                                        {{ m.precio_unitario_momento|smart_money }}
                                     {% else %}
                                         —
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if m.total %}
-                                        <strong>{{ "%.2f"|format(m.total) }} €</strong>
+                                        <strong>{{ m.total|smart_money }}</strong>
                                     {% else %}
                                         —
                                     {% endif %}
