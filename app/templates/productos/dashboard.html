@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard de Productos{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <h2><i class="fas fa-chart-line me-2 text-primary"></i>Dashboard de Productos</h2>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('productos.lista') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-boxes me-1"></i>Ver inventario
+                </a>
+                <a href="{{ url_for('productos.entrada') }}" class="btn btn-success">
+                    <i class="fas fa-arrow-down me-1"></i>Entrada
+                </a>
+                <a href="{{ url_for('productos.venta') }}" class="btn btn-warning">
+                    <i class="fas fa-arrow-up me-1"></i>Venta
+                </a>
+            </div>
+        </div>
+
+        <!-- Totales del día -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card shadow-sm border-0 bg-success text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-euro-sign fa-2x mb-2 opacity-75"></i>
+                        <h5 class="card-title">Vendido hoy</h5>
+                        <h3 class="mb-0">{{ "%.2f"|format(total_vendido_hoy) }} €</h3>
+                        <small>{{ ahora.strftime('%d/%m/%Y') }}</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card shadow-sm border-0 bg-info text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-shopping-cart fa-2x mb-2 opacity-75"></i>
+                        <h5 class="card-title">Ventas hoy</h5>
+                        <h3 class="mb-0">{{ cantidad_ventas_hoy }}</h3>
+                        <small>operaciones</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card shadow-sm border-0 bg-danger text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2 opacity-75"></i>
+                        <h5 class="card-title">Agotados</h5>
+                        <h3 class="mb-0">{{ productos_agotados|length }}</h3>
+                        <small>sin stock</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card shadow-sm border-0 bg-warning text-dark h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-bell fa-2x mb-2 opacity-75"></i>
+                        <h5 class="card-title">Stock bajo</h5>
+                        <h3 class="mb-0">{{ productos_bajo_stock|length }}</h3>
+                        <small>menos de 5</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-lg-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-clock me-2 text-primary"></i>Ventas por hora hoy</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="ventasHoraChart" height="180"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2 text-primary"></i>Por producto hoy</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if ventas_por_producto %}
+                        <canvas id="ventasProductoChart" height="220"></canvas>
+                        {% else %}
+                        <p class="text-muted text-center mt-5">Aún no hay ventas hoy.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productos agotados -->
+        <div class="card shadow-sm mb-4 border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-times-circle me-2"></i>Productos agotados</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if productos_agotados %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th>Precio</th>
+                                <th>Estado</th>
+                                <th class="text-end">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in productos_agotados %}
+                            <tr>
+                                <td><strong>{{ p.nombre }}</strong></td>
+                                <td><span class="badge bg-light text-dark border">{{ p.label_categoria() }}</span></td>
+                                <td>{{ "%.2f"|format(p.precio) }} €</td>
+                                <td><span class="badge bg-danger">AGOTADO</span></td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('productos.entrada') }}?producto_id={{ p.id }}" class="btn btn-sm btn-success">
+                                        <i class="fas fa-plus me-1"></i>Rellenar stock
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <p class="mb-0">No hay productos agotados.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Últimas ventas -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="fas fa-history me-2 text-primary"></i>Últimas ventas</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if ultimas_ventas %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Hora</th>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in ultimas_ventas %}
+                            <tr>
+                                <td>{{ v.fecha.strftime('%H:%M') }}</td>
+                                <td><strong>{{ v.producto.nombre }}</strong></td>
+                                <td>{{ "%.2f"|format(v.cantidad) }} {{ v.producto.label_medida() }}</td>
+                                <td><strong>{{ "%.2f"|format(v.total or 0) }} €</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    No hay ventas registradas todavía.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const horas = {{ horas|tojson }};
+    const totalesPorHora = {{ totales_por_hora|tojson }};
+    const etiquetasHoras = horas.map(h => h + ':00');
+
+    new Chart(document.getElementById('ventasHoraChart'), {
+        type: 'bar',
+        data: {
+            labels: etiquetasHoras,
+            datasets: [{
+                label: '€ vendidos',
+                data: totalesPorHora,
+                backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                borderColor: 'rgba(13, 110, 253, 1)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: function(value) { return value + ' €'; } }
+                }
+            }
+        }
+    });
+
+    {% if ventas_por_producto %}
+    const nombres = {{ ventas_por_producto|map(attribute='nombre')|list|tojson }};
+    const totales = {{ ventas_por_producto|map(attribute='total')|list|tojson }};
+    const colores = [
+        '#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0',
+        '#6f42c1', '#fd7e14', '#20c997', '#6610f2', '#d63384'
+    ];
+
+    new Chart(document.getElementById('ventasProductoChart'), {
+        type: 'doughnut',
+        data: {
+            labels: nombres,
+            datasets: [{
+                data: totales,
+                backgroundColor: colores,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12 } }
+            }
+        }
+    });
+    {% endif %}
+})();
+</script>
+{% endblock %}

@@ -43,10 +43,17 @@
                             <i class="fas fa-bolt me-1"></i> Rápido
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('productos.lista') }}">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="menuProductos" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-boxes"></i> Productos
                         </a>
+                        <ul class="dropdown-menu" aria-labelledby="menuProductos">
+                            <li><a class="dropdown-item" href="{{ url_for('productos.dashboard') }}"><i class="fas fa-chart-line me-2"></i>Dashboard de ventas</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('productos.lista') }}"><i class="fas fa-boxes me-2"></i>Inventario</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('productos.entrada') }}"><i class="fas fa-arrow-down me-2"></i>Entrada de stock</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('productos.venta') }}"><i class="fas fa-arrow-up me-2"></i>Venta</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('productos.movimientos') }}"><i class="fas fa-history me-2"></i>Historial</a></li>
+                        </ul>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('documentos.lista') }}">

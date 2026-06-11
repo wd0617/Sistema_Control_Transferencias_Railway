@@ -22,6 +22,7 @@
                             <option value="" {% if not tipo %}selected{% endif %}>Todos</option>
                             <option value="entrada" {% if tipo == 'entrada' %}selected{% endif %}>Entradas</option>
                             <option value="venta" {% if tipo == 'venta' %}selected{% endif %}>Ventas</option>
+                            <option value="ajuste" {% if tipo == 'ajuste' %}selected{% endif %}>Agotados / Ajustes</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -42,8 +43,19 @@
         </div>
 
         <!-- Totales -->
-        <div class="alert alert-success mb-4">
-            <strong>Total en ventas (filtrado):</strong> {{ "%.2f"|format(total_ventas) }} €
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="alert alert-success mb-0 h-100 d-flex flex-column justify-content-center">
+                    <strong><i class="fas fa-euro-sign me-2"></i>Total vendido hoy:</strong>
+                    <span class="fs-4">{{ "%.2f"|format(total_hoy) }} €</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="alert alert-info mb-0 h-100 d-flex flex-column justify-content-center">
+                    <strong><i class="fas fa-filter me-2"></i>Total en ventas (filtrado):</strong>
+                    <span class="fs-4">{{ "%.2f"|format(total_ventas) }} €</span>
+                </div>
+            </div>
         </div>
 
         <!-- Tabla -->
@@ -70,8 +82,10 @@
                                 <td>
                                     {% if m.tipo == 'entrada' %}
                                         <span class="badge bg-success"><i class="fas fa-arrow-down"></i> Entrada</span>
-                                    {% else %}
+                                    {% elif m.tipo == 'venta' %}
                                         <span class="badge bg-warning text-dark"><i class="fas fa-arrow-up"></i> Venta</span>
+                                    {% else %}
+                                        <span class="badge bg-danger"><i class="fas fa-ban"></i> Agotado</span>
                                     {% endif %}
                                 </td>
                                 <td><strong>{{ m.producto.nombre }}</strong></td>

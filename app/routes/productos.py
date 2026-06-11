@@ -1,7 +1,9 @@
 import os
+import re
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_from_directory
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
+from sqlalchemy import func
 from app import db
 from app.models.producto import Producto, MovimientoProducto
 from datetime import datetime, timedelta
@@ -292,6 +294,102 @@ def venta():
     return render_template('productos/venta.html', productos=productos_list)
 
 
+@productos.route('/dashboard')
+@login_required
+def dashboard():
+    """Panel visual de ventas de productos y estado de stock."""
+    ahora = datetime.now()
+    hoy_inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
+    hoy_fin = hoy_inicio + timedelta(days=1)
+
+    # Ventas de hoy
+    ventas_hoy = MovimientoProducto.query.filter(
+        MovimientoProducto.tipo == 'venta',
+        MovimientoProducto.fecha >= hoy_inicio,
+        MovimientoProducto.fecha < hoy_fin
+    ).order_by(MovimientoProducto.fecha.asc()).all()
+
+    total_vendido_hoy = sum(v.total or 0 for v in ventas_hoy)
+    cantidad_ventas_hoy = len(ventas_hoy)
+
+    # Ventas por producto hoy (para gráfico)
+    ventas_por_producto = db.session.query(
+        Producto.nombre,
+        func.sum(MovimientoProducto.total).label('total'),
+        func.sum(MovimientoProducto.cantidad).label('cantidad')
+    ).join(MovimientoProducto).filter(
+        MovimientoProducto.tipo == 'venta',
+        MovimientoProducto.fecha >= hoy_inicio,
+        MovimientoProducto.fecha < hoy_fin
+    ).group_by(Producto.nombre).order_by(func.sum(MovimientoProducto.total).desc()).all()
+
+    # Ventas por hora hoy (para gráfico de líneas)
+    ventas_por_hora_raw = db.session.query(
+        func.extract('hour', MovimientoProducto.fecha).label('hora'),
+        func.sum(MovimientoProducto.total).label('total')
+    ).filter(
+        MovimientoProducto.tipo == 'venta',
+        MovimientoProducto.fecha >= hoy_inicio,
+        MovimientoProducto.fecha < hoy_fin
+    ).group_by(func.extract('hour', MovimientoProducto.fecha)).order_by('hora').all()
+
+    horas = list(range(24))
+    totales_por_hora = [0.0] * 24
+    for hora, total in ventas_por_hora_raw:
+        if hora is not None and 0 <= int(hora) < 24:
+            totales_por_hora[int(hora)] = float(total or 0)
+
+    # Estado de stock
+    productos_agotados = Producto.query.filter_by(activo=True).filter(Producto.stock_actual <= 0).order_by(Producto.nombre).all()
+    productos_bajo_stock = Producto.query.filter_by(activo=True).filter(Producto.stock_actual > 0, Producto.stock_actual < 5).order_by(Producto.nombre).all()
+
+    # Últimas ventas (top 10)
+    ultimas_ventas = MovimientoProducto.query.filter(
+        MovimientoProducto.tipo == 'venta'
+    ).order_by(MovimientoProducto.fecha.desc()).limit(10).all()
+
+    return render_template('productos/dashboard.html',
+                           ahora=ahora,
+                           total_vendido_hoy=total_vendido_hoy,
+                           cantidad_ventas_hoy=cantidad_ventas_hoy,
+                           ventas_por_producto=ventas_por_producto,
+                           horas=horas,
+                           totales_por_hora=totales_por_hora,
+                           productos_agotados=productos_agotados,
+                           productos_bajo_stock=productos_bajo_stock,
+                           ultimas_ventas=ultimas_ventas,
+                           now=ahora)
+
+
+@productos.route('/agotar/<int:producto_id>', methods=['POST'])
+@login_required
+def agotar(producto_id):
+    """Marca un producto como agotado: stock a cero y registra ajuste."""
+    producto = Producto.query.get_or_404(producto_id)
+
+    if producto.stock_actual <= 0:
+        flash(f'{producto.nombre} ya está agotado.', 'info')
+        return redirect(url_for('productos.lista'))
+
+    cantidad_ajuste = producto.stock_actual
+    producto.stock_actual = 0
+
+    movimiento = MovimientoProducto(
+        producto_id=producto.id,
+        tipo='ajuste',
+        cantidad=cantidad_ajuste,
+        precio_unitario_momento=0,
+        total=0,
+        notas='Marcado como agotado: stock sin contar / terminado',
+        usuario_id=current_user.id
+    )
+    db.session.add(movimiento)
+    db.session.commit()
+
+    flash(f'{producto.nombre} marcado como agotado (ajuste de {cantidad_ajuste:.2f} {producto.label_medida()}).', 'warning')
+    return redirect(url_for('productos.lista'))
+
+
 @productos.route('/movimientos')
 @login_required
 def movimientos():
@@ -302,7 +400,8 @@ def movimientos():
 
     query = MovimientoProducto.query.join(Producto).order_by(MovimientoProducto.fecha.desc())
 
-    if tipo in ('entrada', 'venta'):
+    # Ajuste se muestra siempre, salvo que filtren explícitamente por tipo
+    if tipo in ('entrada', 'venta', 'ajuste'):
         query = query.filter(MovimientoProducto.tipo == tipo)
 
     if desde_str:
@@ -321,14 +420,29 @@ def movimientos():
 
     movimientos_list = query.all()
 
-    # Totales
-    total_ventas = db.session.query(db.func.sum(MovimientoProducto.total)).filter(
+    # Totales filtrados
+    total_ventas = db.session.query(func.sum(MovimientoProducto.total)).filter(
         MovimientoProducto.tipo == 'venta'
+    )
+    if desde_str:
+        total_ventas = total_ventas.filter(MovimientoProducto.fecha >= datetime.strptime(desde_str, '%Y-%m-%d'))
+    if hasta_str:
+        total_ventas = total_ventas.filter(MovimientoProducto.fecha < datetime.strptime(hasta_str, '%Y-%m-%d') + timedelta(days=1))
+    total_ventas = total_ventas.scalar() or 0
+
+    # Total vendido hoy (siempre visible)
+    hoy_inicio = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    hoy_fin = hoy_inicio + timedelta(days=1)
+    total_hoy = db.session.query(func.sum(MovimientoProducto.total)).filter(
+        MovimientoProducto.tipo == 'venta',
+        MovimientoProducto.fecha >= hoy_inicio,
+        MovimientoProducto.fecha < hoy_fin
     ).scalar() or 0
 
     return render_template('productos/movimientos.html',
                            movimientos=movimientos_list,
                            total_ventas=float(total_ventas),
+                           total_hoy=float(total_hoy),
                            tipo=tipo,
                            desde=desde_str,
                            hasta=hasta_str,
