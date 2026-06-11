@@ -60,13 +60,17 @@ def create_app(config_class=Config):
         try:
             from sqlalchemy import inspect, text
             inspector = inspect(db.engine)
-            if 'productos' in inspector.get_table_names():
-                cols = [c['name'] for c in inspector.get_columns('productos')]
-                with db.engine.begin() as conn:
+            with db.engine.begin() as conn:
+                if 'productos' in inspector.get_table_names():
+                    cols = [c['name'] for c in inspector.get_columns('productos')]
                     if 'categoria' not in cols:
                         conn.execute(text("ALTER TABLE productos ADD COLUMN categoria VARCHAR(30)"))
                     if 'foto' not in cols:
                         conn.execute(text("ALTER TABLE productos ADD COLUMN foto VARCHAR(255)"))
+                if 'movimientos_producto' in inspector.get_table_names():
+                    cols_mov = [c['name'] for c in inspector.get_columns('movimientos_producto')]
+                    if 'unidades' not in cols_mov:
+                        conn.execute(text("ALTER TABLE movimientos_producto ADD COLUMN unidades INTEGER"))
         except Exception:
             pass
     
