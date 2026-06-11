@@ -1,41 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Entrada de Stock{% block extra_js %}
-<script>
-(function() {
-    const select = document.querySelector('select[name="producto_id"]');
-    const labelCantidad = document.getElementById('labelCantidad');
-    const helpCantidad = document.getElementById('helpCantidad');
-    const campoUnidades = document.getElementById('campoUnidades');
-
-    function actualizarLabels() {
-        const option = select.options[select.selectedIndex];
-        const medida = option.dataset.medida || '';
-        if (medida === 'peso') {
-            labelCantidad.textContent = 'kg que entran';
-            helpCantidad.textContent = 'Usá coma o punto para decimales. Ej: 2,5';
-            campoUnidades.style.display = 'block';
-        } else {
-            labelCantidad.textContent = 'Cantidad que entra';
-            helpCantidad.textContent = 'Usá coma o punto para decimales.';
-            campoUnidades.style.display = 'none';
-        }
-    }
-
-    if (select) {
-        // Agregar data-medida a cada option
-        select.querySelectorAll('option').forEach(opt => {
-            if (opt.value) {
-                const text = opt.textContent.toLowerCase();
-                opt.dataset.medida = text.includes('kg') ? 'peso' : 'unidad';
-            }
-        });
-        select.addEventListener('change', actualizarLabels);
-        actualizarLabels();
-    }
-})();
-</script>
-{% endblock %}
+{% block title %}Entrada de Stock{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -88,4 +53,41 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const select = document.querySelector('select[name="producto_id"]');
+    const labelCantidad = document.getElementById('labelCantidad');
+    const helpCantidad = document.getElementById('helpCantidad');
+    const campoUnidades = document.getElementById('campoUnidades');
+
+    function actualizarLabels() {
+        const option = select.options[select.selectedIndex];
+        const medida = option.dataset.medida || '';
+        if (medida === 'peso') {
+            labelCantidad.textContent = 'kg que entran';
+            helpCantidad.textContent = 'Usá coma o punto para decimales. Ej: 2,5';
+            campoUnidades.style.display = 'block';
+        } else {
+            labelCantidad.textContent = 'Cantidad que entra';
+            helpCantidad.textContent = 'Usá coma o punto para decimales.';
+            campoUnidades.style.display = 'none';
+        }
+    }
+
+    if (select) {
+        // Agregar data-medida a cada option
+        select.querySelectorAll('option').forEach(opt => {
+            if (opt.value) {
+                const text = opt.textContent.toLowerCase();
+                opt.dataset.medida = text.includes('kg') ? 'peso' : 'unidad';
+            }
+        });
+        select.addEventListener('change', actualizarLabels);
+        actualizarLabels();
+    }
+})();
+</script>
 {% endblock %}
