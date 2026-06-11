@@ -18,6 +18,10 @@ def uploaded_file(filename):
 ALLOWED_IMG = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 
+def _cloudinary_configured():
+    return bool(os.environ.get('CLOUDINARY_CLOUD_NAME'))
+
+
 def _allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMG
 
@@ -27,8 +31,22 @@ def _guardar_foto(archivo):
         return None
     if not _allowed_file(archivo.filename):
         return None
+
+    # Si Cloudinary está configurado, subir allá
+    if _cloudinary_configured():
+        try:
+            import cloudinary.uploader
+            filename = secure_filename(archivo.filename)
+            name, ext = os.path.splitext(filename)
+            public_id = f"productos/{name}_{int(datetime.utcnow().timestamp())}"
+            result = cloudinary.uploader.upload(archivo, public_id=public_id, overwrite=True)
+            return result.get('secure_url')
+        except Exception as e:
+            current_app.logger.warning(f'Error subiendo a Cloudinary: {e}')
+            # Fallback a local si falla Cloudinary
+
+    # Guardado local (fallback)
     filename = secure_filename(archivo.filename)
-    # Evitar colisiones con timestamp
     name, ext = os.path.splitext(filename)
     filename = f"{name}_{int(datetime.utcnow().timestamp())}{ext}"
     upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'productos')
@@ -38,11 +56,33 @@ def _guardar_foto(archivo):
     return f"productos/{filename}"
 
 
-def _eliminar_foto(ruta_relativa):
-    if not ruta_relativa:
+def _extraer_cloudinary_public_id(url):
+    """Extrae el public_id de una URL de Cloudinary."""
+    if not url or 'res.cloudinary.com' not in url:
+        return None
+    m = re.search(r'/image/upload/(?:v\d+/)?(.+?)\.[^.]+$', url)
+    if m:
+        return m.group(1)
+    return None
+
+
+def _eliminar_foto(ruta_o_url):
+    if not ruta_o_url:
         return
+
+    # Si es una URL de Cloudinary, eliminar de allá
+    public_id = _extraer_cloudinary_public_id(ruta_o_url)
+    if public_id and _cloudinary_configured():
+        try:
+            import cloudinary.uploader
+            cloudinary.uploader.destroy(public_id)
+            return
+        except Exception as e:
+            current_app.logger.warning(f'Error eliminando de Cloudinary: {e}')
+
+    # Fallback: eliminar archivo local
     try:
-        full = os.path.join(current_app.config['UPLOAD_FOLDER'], ruta_relativa)
+        full = os.path.join(current_app.config['UPLOAD_FOLDER'], ruta_o_url)
         if os.path.exists(full):
             os.remove(full)
     except Exception:

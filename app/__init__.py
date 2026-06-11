@@ -9,6 +9,19 @@ def create_app(config_class=Config):
     CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
     app.config.from_object(config_class)
     
+    # Configurar Cloudinary si hay credenciales
+    cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
+    api_key = os.environ.get('CLOUDINARY_API_KEY')
+    api_secret = os.environ.get('CLOUDINARY_API_SECRET')
+    if cloud_name and api_key and api_secret:
+        import cloudinary
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True
+        )
+    
     # Asegurar que existe la carpeta de uploads
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
