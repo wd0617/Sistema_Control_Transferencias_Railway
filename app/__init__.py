@@ -55,6 +55,20 @@ def create_app(config_class=Config):
             upgrade()
         except Exception:
             pass
+        
+        # Fallback: asegurar columnas nuevas en tablas existentes
+        try:
+            from sqlalchemy import inspect, text
+            inspector = inspect(db.engine)
+            if 'productos' in inspector.get_table_names():
+                cols = [c['name'] for c in inspector.get_columns('productos')]
+                with db.engine.begin() as conn:
+                    if 'categoria' not in cols:
+                        conn.execute(text("ALTER TABLE productos ADD COLUMN categoria VARCHAR(30)"))
+                    if 'foto' not in cols:
+                        conn.execute(text("ALTER TABLE productos ADD COLUMN foto VARCHAR(255)"))
+        except Exception:
+            pass
     
     # Inyectar contador de notificaciones en todos los templates
     @app.context_processor
