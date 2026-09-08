@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from app.models.cliente import Cliente, Servicio
 from app.models.transaccion import Transaccion
 from app import db
+from app.utils.tenancy import query_negocio, get_negocio_o_404
 
 clientes = Blueprint('clientes', __name__)
 
@@ -14,7 +15,7 @@ clientes = Blueprint('clientes', __name__)
 def lista():
     page = request.args.get('page', 1, type=int)
     per_page = 50
-    pagination = Cliente.query.order_by(Cliente.ultima_visita.desc()).paginate(
+    pagination = query_negocio(Cliente).order_by(Cliente.ultima_visita.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
     return render_template('clientes/lista.html', clientes=pagination.items, pagination=pagination, now=datetime.now())
@@ -30,7 +31,7 @@ def search():
         if query:
             # Búsqueda por nombre, apellido, documento o teléfono
             # Precargar servicios para evitar N+1 queries
-            clientes_list = Cliente.query.options(
+            clientes_list = query_negocio(Cliente).options(
                 joinedload(Cliente.servicios)
             ).filter(
                 (Cliente.nombre.ilike(f'%{query}%')) | 
@@ -130,7 +131,7 @@ def nuevo():
         # Agregar servicios al cliente nuevo
         servicios_ids = request.form.getlist('servicios')
         for servicio_id in servicios_ids:
-            servicio = Servicio.query.get(servicio_id)
+            servicio = query_negocio(Servicio).filter_by(id=servicio_id).first()
             if servicio:
                 cliente.servicios.append(servicio)
 
@@ -139,14 +140,14 @@ def nuevo():
         return redirect(url_for('clientes.lista'))
     
     # GET: Mostrar formulario
-    servicios = Servicio.query.all()
+    servicios = query_negocio(Servicio).all()
     return render_template('clientes/nuevo.html', servicios=servicios, now=datetime.now())
 
 @clientes.route('/editar/<int:cliente_id>', methods=['GET', 'POST'])
 @login_required
 def editar(cliente_id):
     # Obtener el cliente
-    cliente = Cliente.query.get_or_404(cliente_id)
+    cliente = get_negocio_o_404(Cliente, cliente_id)
     
     if request.method == 'POST':
         # Recoger datos del formulario
@@ -163,7 +164,7 @@ def editar(cliente_id):
         
         # Verificar si se está intentando cambiar el documento a uno ya existente
         if documento != cliente.documento:
-            cliente_existente = Cliente.query.filter_by(documento=documento).first()
+            cliente_existente = query_negocio(Cliente).filter_by(documento=documento).first()
             if cliente_existente:
                 flash('Ya existe un cliente con ese documento', 'danger')
                 return redirect(url_for('clientes.editar', cliente_id=cliente.id))
@@ -213,7 +214,7 @@ def editar(cliente_id):
         
         servicios_ids = request.form.getlist('servicios')
         for servicio_id in servicios_ids:
-            servicio = Servicio.query.get(servicio_id)
+            servicio = query_negocio(Servicio).filter_by(id=servicio_id).first()
             if servicio:
                 cliente.servicios.append(servicio)
         
@@ -222,5 +223,5 @@ def editar(cliente_id):
         return redirect(url_for('clientes.lista'))
     
     # GET: Mostrar formulario con datos del cliente
-    servicios = Servicio.query.all()
+    servicios = query_negocio(Servicio).all()
     return render_template('clientes/editar.html', cliente=cliente, servicios=servicios, now=datetime.now())

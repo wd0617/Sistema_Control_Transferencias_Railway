@@ -48,7 +48,9 @@ def create_app(config_class=Config):
     from app.routes.data_management import data_mgmt as data_mgmt_blueprint
     from app.routes.notificaciones import notificaciones as notificaciones_blueprint
     from app.routes.productos import productos as productos_blueprint
-    
+    from app.routes.registro import registro as registro_blueprint
+    from app.routes.admin import admin as admin_blueprint
+
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
     app.register_blueprint(clientes_blueprint, url_prefix='/clientes')
@@ -59,6 +61,12 @@ def create_app(config_class=Config):
     app.register_blueprint(data_mgmt_blueprint, url_prefix='/datos')
     app.register_blueprint(notificaciones_blueprint, url_prefix='/notificaciones')
     app.register_blueprint(productos_blueprint, url_prefix='/productos')
+    app.register_blueprint(registro_blueprint)
+    app.register_blueprint(admin_blueprint, url_prefix='/admin')
+
+    # Multitenancy: estampar negocio_id automáticamente al insertar registros
+    from app.utils.tenancy import registrar_listener_tenancy
+    registrar_listener_tenancy()
     
     # Crear tablas que no existan y aplicar migraciones pendientes
     with app.app_context():
@@ -84,6 +92,23 @@ def create_app(config_class=Config):
                     cols_mov = [c['name'] for c in inspector.get_columns('movimientos_producto')]
                     if 'unidades' not in cols_mov:
                         conn.execute(text("ALTER TABLE movimientos_producto ADD COLUMN unidades INTEGER"))
+                # Fallback multitenancy: columnas negocio_id / flags de users
+                # (las constraints UNIQUE por negocio solo las crea la migración Alembic)
+                tablas_tenant = ('clientes', 'servicios', 'transacciones', 'documentos_cliente',
+                                 'notificaciones', 'productos', 'movimientos_producto')
+                for tabla in tablas_tenant:
+                    if tabla in inspector.get_table_names():
+                        cols_t = [c['name'] for c in inspector.get_columns(tabla)]
+                        if 'negocio_id' not in cols_t:
+                            conn.execute(text(f"ALTER TABLE {tabla} ADD COLUMN negocio_id INTEGER REFERENCES negocios(id)"))
+                if 'users' in inspector.get_table_names():
+                    cols_u = [c['name'] for c in inspector.get_columns('users')]
+                    if 'negocio_id' not in cols_u:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN negocio_id INTEGER REFERENCES negocios(id)"))
+                    if 'is_superadmin' not in cols_u:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN is_superadmin BOOLEAN DEFAULT FALSE"))
+                    if 'activo' not in cols_u:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN activo BOOLEAN DEFAULT TRUE"))
         except Exception:
             pass
     
@@ -95,6 +120,15 @@ def create_app(config_class=Config):
         if current_user.is_authenticated:
             return {'notificaciones_count': contar_notificaciones_pendientes()}
         return {'notificaciones_count': 0}
+
+    # Inyectar el negocio en modo soporte (banner para superadmin)
+    @app.context_processor
+    def inject_negocio_vista():
+        from app.utils.tenancy import negocio_vista_actual
+        try:
+            return {'negocio_vista': negocio_vista_actual()}
+        except Exception:
+            return {'negocio_vista': None}
     
     # Inyectar 'now' en todos los templates para el footer
     @app.context_processor

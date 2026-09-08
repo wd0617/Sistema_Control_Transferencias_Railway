@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitar acceso - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-7">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="my-0"><i class="fas fa-store me-2"></i>Solicitar acceso para tu negocio</h4>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted">
+                    Completa el formulario y revisaremos tu solicitud. El acceso se activa
+                    únicamente tras ser aprobado por el administrador de la plataforma.
+                </p>
+                <form method="POST" action="{{ url_for('registro.solicitar') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {# Honeypot anti-bots: oculto para humanos #}
+                    <div style="display:none" aria-hidden="true">
+                        <label>No rellenar: <input type="text" name="empresa_web" tabindex="-1" autocomplete="off"></label>
+                    </div>
+
+                    <h6 class="text-primary mt-2"><i class="fas fa-store me-1"></i>Datos del negocio</h6>
+                    <div class="mb-3">
+                        <label for="nombre_negocio" class="form-label">Nombre del negocio *</label>
+                        <input type="text" class="form-control" id="nombre_negocio" name="nombre_negocio"
+                               value="{{ datos.get('nombre_negocio', '') }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="telefono" class="form-label">Teléfono de contacto</label>
+                        <input type="text" class="form-control" id="telefono" name="telefono"
+                               value="{{ datos.get('telefono', '') }}">
+                    </div>
+
+                    <h6 class="text-primary mt-4"><i class="fas fa-user me-1"></i>Responsable (será el administrador)</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nombre" class="form-label">Nombre *</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre"
+                                   value="{{ datos.get('nombre', '') }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="apellido" class="form-label">Apellido *</label>
+                            <input type="text" class="form-control" id="apellido" name="apellido"
+                                   value="{{ datos.get('apellido', '') }}" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email *</label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ datos.get('email', '') }}" required>
+                    </div>
+
+                    <h6 class="text-primary mt-4"><i class="fas fa-key me-1"></i>Credenciales de acceso</h6>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Nombre de usuario *</label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               value="{{ datos.get('username', '') }}" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="password" class="form-label">Contraseña *</label>
+                            <input type="password" class="form-control" id="password" name="password"
+                                   minlength="8" required>
+                            <div class="form-text">Mínimo 8 caracteres.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="password2" class="form-label">Repite la contraseña *</label>
+                            <input type="password" class="form-control" id="password2" name="password2"
+                                   minlength="8" required>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane me-2"></i>Enviar solicitud
+                        </button>
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary">
+                            Ya tengo cuenta — Iniciar sesión
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

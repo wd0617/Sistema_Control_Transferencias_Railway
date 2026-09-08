@@ -3,6 +3,7 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.transaccion import Notificacion
 from app.utils.notificaciones import contar_notificaciones_pendientes, obtener_notificaciones_pendientes
+from app.utils.tenancy import query_negocio, get_negocio_o_404
 import traceback
 
 notificaciones = Blueprint('notificaciones', __name__)
@@ -12,7 +13,7 @@ notificaciones = Blueprint('notificaciones', __name__)
 def lista():
     """Muestra todas las notificaciones pendientes."""
     try:
-        notifs = Notificacion.query.filter_by(leida=False).order_by(
+        notifs = query_negocio(Notificacion).filter_by(leida=False).order_by(
             Notificacion.fecha_creacion.desc()
         ).all()
         return render_template('notificaciones/lista.html', notificaciones=notifs)
@@ -25,7 +26,7 @@ def lista():
 @login_required
 def marcar_leida(notificacion_id):
     """Marca una notificación como leída."""
-    notif = Notificacion.query.get_or_404(notificacion_id)
+    notif = get_negocio_o_404(Notificacion, notificacion_id)
     notif.leida = True
     notif.fecha_lectura = db.func.now()
     db.session.commit()
@@ -36,7 +37,7 @@ def marcar_leida(notificacion_id):
 @login_required
 def marcar_todas_leidas():
     """Marca todas las notificaciones como leídas."""
-    Notificacion.query.filter_by(leida=False).update({
+    query_negocio(Notificacion).filter_by(leida=False).update({
         'leida': True,
         'fecha_lectura': db.func.now()
     })

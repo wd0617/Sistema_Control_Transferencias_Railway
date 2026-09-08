@@ -6,6 +6,7 @@ class DocumentoCliente(db.Model):
     __tablename__ = 'documentos_cliente'
     
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
     
     # Información del documento
@@ -85,40 +86,42 @@ class DocumentoCliente(db.Model):
     
     @staticmethod
     def obtener_documentos_por_vencer(dias=30):
-        """Obtiene todos los documentos que vencerán en los próximos X días."""
+        """Obtiene los documentos del negocio actual que vencerán en los próximos X días."""
         from datetime import timedelta
+        from app.utils.tenancy import query_negocio
         fecha_limite = date.today() + timedelta(days=dias)
-        
-        return DocumentoCliente.query.filter(
+
+        return query_negocio(DocumentoCliente).filter(
             DocumentoCliente.fecha_vencimiento <= fecha_limite,
             DocumentoCliente.fecha_vencimiento >= date.today()
         ).order_by(DocumentoCliente.fecha_vencimiento).all()
-    
+
     @staticmethod
     def obtener_documentos_vencidos():
-        """Obtiene todos los documentos vencidos."""
-        return DocumentoCliente.query.filter(
+        """Obtiene los documentos vencidos del negocio actual."""
+        from app.utils.tenancy import query_negocio
+        return query_negocio(DocumentoCliente).filter(
             DocumentoCliente.fecha_vencimiento < date.today()
         ).order_by(DocumentoCliente.fecha_vencimiento).all()
-    
+
     @staticmethod
     def contar_por_estado():
-        """Cuenta documentos por estado."""
-        from sqlalchemy import func
+        """Cuenta documentos por estado dentro del negocio actual."""
+        from app.utils.tenancy import query_negocio
         hoy = date.today()
         from datetime import timedelta
         fecha_alerta = hoy + timedelta(days=30)
-        
-        vencidos = DocumentoCliente.query.filter(
+
+        vencidos = query_negocio(DocumentoCliente).filter(
             DocumentoCliente.fecha_vencimiento < hoy
         ).count()
-        
-        por_vencer = DocumentoCliente.query.filter(
+
+        por_vencer = query_negocio(DocumentoCliente).filter(
             DocumentoCliente.fecha_vencimiento >= hoy,
             DocumentoCliente.fecha_vencimiento <= fecha_alerta
         ).count()
-        
-        vigentes = DocumentoCliente.query.filter(
+
+        vigentes = query_negocio(DocumentoCliente).filter(
             DocumentoCliente.fecha_vencimiento > fecha_alerta
         ).count()
         

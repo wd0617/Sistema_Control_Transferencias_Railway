@@ -7,12 +7,15 @@ class User(UserMixin, db.Model):
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)  # NULL solo para superadmin
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
     nombre = db.Column(db.String(64))
     apellido = db.Column(db.String(64))
     is_admin = db.Column(db.Boolean, default=False)
+    is_superadmin = db.Column(db.Boolean, default=False)
+    activo = db.Column(db.Boolean, default=True)  # False mientras la solicitud del negocio está pendiente
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     
@@ -30,7 +33,19 @@ class User(UserMixin, db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    user = User.query.get(int(user_id))
+    if user is None:
+        return None
+    # El superadmin global (o usuario admin) siempre conserva acceso
+    if user.is_superadmin or user.username == 'admin':
+        return user
+    # Bloquear usuarios desactivados
+    if user.activo is False:
+        return None
+    # Bloquear usuarios cuyo negocio no esté aprobado
+    if user.negocio is None or not user.negocio.esta_aprobado:
+        return None
+    return user
 
 class ActivityLog(db.Model):
     __tablename__ = 'activity_logs'

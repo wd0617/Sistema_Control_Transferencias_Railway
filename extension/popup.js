@@ -1,7 +1,7 @@
-// URL del sistema en Railway
-const BASE_URL = 'https://sistemacontroltransferenciasrailway-production.up.railway.app';
-const API_URL = BASE_URL + '/transacciones/api/analizar-recibo';
-const APP_URL = BASE_URL + '/transacciones/registro-rapido';
+// URL por defecto del sistema. Cada negocio puede cambiarla desde el popup
+// (queda guardada en chrome.storage.sync y se sincroniza entre sus navegadores).
+const DEFAULT_BASE_URL = 'https://sistemacontroltransferenciasrailway-production.up.railway.app';
+let BASE_URL = DEFAULT_BASE_URL;
 
 // Helpers para timeouts
 function withTimeout(promise, ms, reason) {
@@ -13,6 +13,13 @@ function withTimeout(promise, ms, reason) {
   ]);
 }
 
+// Normaliza la URL ingresada: sin espacios, sin barra final, con protocolo
+function normalizarBaseUrl(url) {
+  let u = (url || '').trim().replace(/\/+$/, '');
+  if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const btnAuto = document.getElementById('btnEnviar');
   const btnManual = document.getElementById('btnEnviarManual');
@@ -21,6 +28,63 @@ document.addEventListener('DOMContentLoaded', async () => {
   const manualText = document.getElementById('manualText');
   const status = document.getElementById('status');
   const siteLabel = document.getElementById('site');
+  const btnToggleConfig = document.getElementById('btnToggleConfig');
+  const configBox = document.getElementById('configBox');
+  const configUrl = document.getElementById('configUrl');
+  const btnGuardarConfig = document.getElementById('btnGuardarConfig');
+  const configMsg = document.getElementById('configMsg');
+
+  // Cargar la URL guardada (si existe)
+  try {
+    const stored = await chrome.storage.sync.get('baseUrl');
+    if (stored.baseUrl) BASE_URL = stored.baseUrl;
+  } catch {
+    // Si falla el storage, se usa la URL por defecto
+  }
+  configUrl.value = BASE_URL;
+
+  // Toggle caja de configuración
+  btnToggleConfig.addEventListener('click', () => {
+    configBox.classList.toggle('visible');
+    if (configBox.classList.contains('visible')) {
+      configUrl.focus();
+    }
+  });
+
+  // Guardar URL del negocio
+  btnGuardarConfig.addEventListener('click', async () => {
+    const url = normalizarBaseUrl(configUrl.value);
+    if (!url) {
+      configMsg.textContent = '❌ Ingresá una URL válida.';
+      configMsg.className = 'config-msg error';
+      return;
+    }
+    btnGuardarConfig.disabled = true;
+    configMsg.textContent = 'Verificando...';
+    configMsg.className = 'config-msg';
+
+    // Verificar que el sistema responda (no bloquea el guardado si falla)
+    let alcanzable = false;
+    try {
+      const resp = await withTimeout(fetch(url, { method: 'GET', redirect: 'follow' }), 8000, 'Timeout');
+      alcanzable = resp.ok || resp.status === 401 || resp.status === 403;
+    } catch {
+      alcanzable = false;
+    }
+
+    try {
+      await chrome.storage.sync.set({ baseUrl: url });
+      BASE_URL = url;
+      configMsg.textContent = alcanzable
+        ? '✅ URL guardada y verificada.'
+        : '⚠️ URL guardada, pero el sistema no respondió. Revisá que esté en línea.';
+      configMsg.className = 'config-msg ' + (alcanzable ? 'success' : 'error');
+    } catch {
+      configMsg.textContent = '❌ No se pudo guardar la URL.';
+      configMsg.className = 'config-msg error';
+    }
+    btnGuardarConfig.disabled = false;
+  });
 
   // Detectar sitio actual
   try {
@@ -144,7 +208,7 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
 
     status.textContent = 'Analizando...';
 
-    const resp = await fetch(API_URL, {
+    const resp = await fetch(BASE_URL + '/transacciones/api/analizar-recibo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texto })
@@ -167,7 +231,7 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
     if (datos.monto) params.set('mon', String(datos.monto).replace('.', ','));
     if (datos.servicio_hint) params.set('srv', datos.servicio_hint);
 
-    const url = APP_URL + '?' + params.toString();
+    const url = BASE_URL + '/transacciones/registro-rapido?' + params.toString();
 
     status.textContent = '✅ Abriendo sistema...';
     status.className = 'success';

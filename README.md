@@ -2,6 +2,11 @@
 
 Sistema web completo para gestión de clientes, transferencias, documentos y control de límites semanales.
 
+> **Plataforma multi-negocio**: varios negocios pueden usar la misma instancia con datos
+> totalmente aislados. Un negocio nuevo solicita acceso desde `/solicitar-acceso` y el
+> superadmin (dueño de la plataforma) lo aprueba desde **Administración → Negocios**.
+> Ver `AGENTS.md` para la guía técnica.
+
 ## 🚀 Características
 
 ### ✅ Gestión de Clientes

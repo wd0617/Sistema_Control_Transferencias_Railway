@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ negocio.nombre }} - Administración{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-store me-2"></i>{{ negocio.nombre }}</h2>
+    <a href="{{ url_for('admin.negocios') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> Volver
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow mb-4">
+            <div class="card-header"><h5 class="my-0">Información</h5></div>
+            <div class="card-body">
+                <p><strong>Estado:</strong>
+                    {% if negocio.estado == 'aprobado' %}<span class="badge bg-success">Aprobado</span>
+                    {% elif negocio.estado == 'pendiente' %}<span class="badge bg-warning text-dark">Pendiente</span>
+                    {% elif negocio.estado == 'suspendido' %}<span class="badge bg-danger">Suspendido</span>
+                    {% else %}<span class="badge bg-secondary">Rechazado</span>{% endif %}
+                </p>
+                <p><strong>Email:</strong> {{ negocio.email_contacto or '—' }}</p>
+                <p><strong>Teléfono:</strong> {{ negocio.telefono or '—' }}</p>
+                <p><strong>Solicitud:</strong> {{ negocio.created_at.strftime('%d/%m/%Y %H:%M') if negocio.created_at }}</p>
+                {% if negocio.aprobado_at %}
+                <p><strong>Aprobado:</strong> {{ negocio.aprobado_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                {% endif %}
+
+                <div class="d-flex gap-2 mt-3">
+                    {% if negocio.estado == 'pendiente' %}
+                    <form method="POST" action="{{ url_for('admin.aprobar', id=negocio.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>Aprobar</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.rechazar', id=negocio.id) }}"
+                          onsubmit="return confirm('¿Rechazar esta solicitud?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-times me-1"></i>Rechazar</button>
+                    </form>
+                    {% elif negocio.estado == 'aprobado' %}
+                    <form method="POST" action="{{ url_for('admin.ver_como_negocio', id=negocio.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-binoculars me-1"></i>Ver como este negocio</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.suspender', id=negocio.id) }}"
+                          onsubmit="return confirm('¿Suspender este negocio? Sus usuarios no podrán entrar.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger"><i class="fas fa-ban me-1"></i>Suspender</button>
+                    </form>
+                    {% else %}
+                    <form method="POST" action="{{ url_for('admin.reactivar', id=negocio.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-success"><i class="fas fa-redo me-1"></i>Reactivar</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow mb-4">
+            <div class="card-header"><h5 class="my-0">Notas internas (contrato, acuerdos…)</h5></div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.negocio_notas', id=negocio.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <textarea class="form-control mb-2" name="notas_admin" rows="4"
+                              placeholder="Ej: Contrato firmado el 01/08/2026, renovación anual…">{{ negocio.notas_admin or '' }}</textarea>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save me-1"></i>Guardar notas</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header"><h5 class="my-0">Usuarios ({{ usuarios|length }})</h5></div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>Usuario</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th></tr></thead>
+                    <tbody>
+                        {% for u in usuarios %}
+                        <tr>
+                            <td><strong>{{ u.username }}</strong></td>
+                            <td>{{ u.nombre or '' }} {{ u.apellido or '' }}</td>
+                            <td>{{ u.email }}</td>
+                            <td>{% if u.is_admin %}<span class="badge bg-primary">Admin</span>{% else %}Usuario{% endif %}</td>
+                            <td>{% if u.activo %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">Sin usuarios.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow">
+            <div class="card-header"><h5 class="my-0">Actividad</h5></div>
+            <div class="card-body">
+                <p class="mb-2"><i class="fas fa-users me-2 text-primary"></i><strong>{{ stats.clientes }}</strong> clientes</p>
+                <p class="mb-2"><i class="fas fa-money-bill-wave me-2 text-success"></i><strong>{{ stats.transacciones }}</strong> transacciones</p>
+                <p class="mb-2"><i class="fas fa-euro-sign me-2 text-warning"></i><strong>{{ stats.volumen|smart_money }}</strong> volumen total</p>
+                <p class="mb-0"><i class="fas fa-boxes me-2 text-info"></i><strong>{{ stats.productos }}</strong> productos</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

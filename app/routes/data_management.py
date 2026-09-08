@@ -3,6 +3,7 @@ from flask_login import login_required
 from app.decorators import admin_required
 from app.models.cliente import Cliente
 from app.models.transaccion import Transaccion
+from app.utils.tenancy import query_negocio, get_negocio_o_404
 from app.utils.export_utils import (
     generar_csv_clientes, generar_csv_transacciones,
     generar_excel_clientes, generar_excel_transacciones,
@@ -23,8 +24,8 @@ data_mgmt = Blueprint('data_mgmt', __name__)
 def index():
     """Panel principal de gestión de datos."""
     # Estadísticas
-    total_clientes = Cliente.query.count()
-    total_transacciones = Transaccion.query.count()
+    total_clientes = query_negocio(Cliente).count()
+    total_transacciones = query_negocio(Transaccion).count()
     
     return render_template('data_management/index.html',
                           total_clientes=total_clientes,
@@ -39,7 +40,7 @@ def index():
 @admin_required
 def exportar_clientes_csv():
     """Exporta todos los clientes a CSV."""
-    clientes = Cliente.query.order_by(Cliente.nombre).all()
+    clientes = query_negocio(Cliente).order_by(Cliente.nombre).all()
     return generar_csv_clientes(clientes)
 
 
@@ -48,7 +49,7 @@ def exportar_clientes_csv():
 @admin_required
 def exportar_clientes_excel():
     """Exporta todos los clientes a Excel."""
-    clientes = Cliente.query.order_by(Cliente.nombre).all()
+    clientes = query_negocio(Cliente).order_by(Cliente.nombre).all()
     return generar_excel_clientes(clientes)
 
 
@@ -57,7 +58,7 @@ def exportar_clientes_excel():
 @admin_required
 def exportar_transacciones_csv():
     """Exporta todas las transacciones a CSV."""
-    transacciones = Transaccion.query.order_by(Transaccion.fecha.desc()).all()
+    transacciones = query_negocio(Transaccion).order_by(Transaccion.fecha.desc()).all()
     return generar_csv_transacciones(transacciones)
 
 
@@ -66,7 +67,7 @@ def exportar_transacciones_csv():
 @admin_required
 def exportar_transacciones_excel():
     """Exporta todas las transacciones a Excel."""
-    transacciones = Transaccion.query.order_by(Transaccion.fecha.desc()).all()
+    transacciones = query_negocio(Transaccion).order_by(Transaccion.fecha.desc()).all()
     return generar_excel_transacciones(transacciones)
 
 
@@ -75,8 +76,8 @@ def exportar_transacciones_excel():
 @admin_required
 def exportar_cliente_pdf(cliente_id):
     """Genera un reporte PDF para un cliente específico."""
-    cliente = Cliente.query.get_or_404(cliente_id)
-    transacciones = Transaccion.query.filter_by(cliente_id=cliente_id).order_by(Transaccion.fecha.desc()).all()
+    cliente = get_negocio_o_404(Cliente, cliente_id)
+    transacciones = query_negocio(Transaccion).filter_by(cliente_id=cliente_id).order_by(Transaccion.fecha.desc()).all()
     
     pdf = generar_reporte_pdf_cliente(cliente, transacciones)
     

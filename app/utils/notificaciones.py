@@ -8,6 +8,7 @@ from app.extensions import db
 from app.models.cliente import Cliente
 from app.models.transaccion import Transaccion, Notificacion
 from app.models.documento import DocumentoCliente
+from app.utils.tenancy import query_negocio, current_negocio_id
 
 def generar_notificaciones():
     """
@@ -21,14 +22,18 @@ def generar_notificaciones():
     limite = 999
     dias_alerta = 30
     fecha_inicio = datetime.utcnow() - timedelta(days=7)
-    
+    nid = current_negocio_id()
+
     # 1. Notificaciones de clientes cerca del límite
-    clientes_con_gastos = db.session.query(
+    gastos_query = db.session.query(
         Transaccion.cliente_id,
         func.sum(Transaccion.monto).label('total_gastado')
     ).filter(
         Transaccion.fecha >= fecha_inicio
-    ).group_by(
+    )
+    if nid is not None:
+        gastos_query = gastos_query.filter(Transaccion.negocio_id == nid)
+    clientes_con_gastos = gastos_query.group_by(
         Transaccion.cliente_id
     ).having(
         func.sum(Transaccion.monto) > (limite - 100)
@@ -44,7 +49,7 @@ def generar_notificaciones():
     
     # 2. Notificaciones de documentos por vencer
     fecha_limite = date.today() + timedelta(days=dias_alerta)
-    docs_por_vencer = DocumentoCliente.query.filter(
+    docs_por_vencer = query_negocio(DocumentoCliente).filter(
         DocumentoCliente.fecha_vencimiento <= fecha_limite,
         DocumentoCliente.fecha_vencimiento >= date.today()
     ).all()
@@ -58,7 +63,7 @@ def generar_notificaciones():
         )
     
     # 3. Notificaciones de documentos vencidos
-    docs_vencidos = DocumentoCliente.query.filter(
+    docs_vencidos = query_negocio(DocumentoCliente).filter(
         DocumentoCliente.fecha_vencimiento < date.today()
     ).all()
     
@@ -77,7 +82,7 @@ def _crear_notificacion_si_no_existe(cliente_id, tipo, mensaje):
     # Verificar si ya existe una notificación del mismo tipo para este cliente
     # creada en las últimas 24h (leída o no), para evitar regenerar alertas
     # inmediatamente después de que el usuario las marque como leídas.
-    existente = Notificacion.query.filter(
+    existente = query_negocio(Notificacion).filter(
         Notificacion.cliente_id == cliente_id,
         Notificacion.tipo == tipo,
         Notificacion.fecha_creacion >= desde
@@ -95,11 +100,11 @@ def _crear_notificacion_si_no_existe(cliente_id, tipo, mensaje):
         db.session.commit()
 
 def contar_notificaciones_pendientes():
-    """Retorna el número de notificaciones no leídas."""
-    return Notificacion.query.filter_by(leida=False).count()
+    """Retorna el número de notificaciones no leídas del negocio actual."""
+    return query_negocio(Notificacion).filter_by(leida=False).count()
 
 def obtener_notificaciones_pendientes(limit=10):
-    """Retorna las notificaciones no leídas más recientes."""
-    return Notificacion.query.filter_by(leida=False).order_by(
+    """Retorna las notificaciones no leídas más recientes del negocio actual."""
+    return query_negocio(Notificacion).filter_by(leida=False).order_by(
         Notificacion.fecha_creacion.desc()
     ).limit(limit).all()

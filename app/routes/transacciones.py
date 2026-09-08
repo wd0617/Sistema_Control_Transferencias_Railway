@@ -5,6 +5,7 @@ from sqlalchemy.orm import joinedload
 from app.models.cliente import Cliente, Servicio
 from app.models.transaccion import Transaccion
 from app import db
+from app.utils.tenancy import query_negocio, get_negocio_o_404, current_negocio_id
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc, or_
 
@@ -19,31 +20,36 @@ def lista():
     inicio_mes = datetime(hoy.year, hoy.month, 1).date()
     fecha_limite = hoy - timedelta(days=30)
     
+    # Filtro por negocio para los agregados globales (None = superadmin sin modo soporte)
+    nid = current_negocio_id()
+    filtro_negocio = [Transaccion.negocio_id == nid] if nid is not None else []
+
     # Estadísticas rápidas en SQL puro (sin cargar objetos completos)
     stats_hoy = db.session.query(
         func.count(Transaccion.id),
         func.coalesce(func.sum(Transaccion.monto), 0),
         func.coalesce(func.sum(Transaccion.comision), 0)
-    ).filter(func.date(Transaccion.fecha) == hoy).first()
-    
+    ).filter(func.date(Transaccion.fecha) == hoy, *filtro_negocio).first()
+
     stats_semana = db.session.query(
         func.count(Transaccion.id),
         func.coalesce(func.sum(Transaccion.monto), 0),
         func.coalesce(func.sum(Transaccion.comision), 0)
-    ).filter(func.date(Transaccion.fecha) >= inicio_semana).first()
-    
+    ).filter(func.date(Transaccion.fecha) >= inicio_semana, *filtro_negocio).first()
+
     stats_mes = db.session.query(
         func.count(Transaccion.id),
         func.coalesce(func.sum(Transaccion.monto), 0),
         func.coalesce(func.sum(Transaccion.comision), 0)
-    ).filter(func.date(Transaccion.fecha) >= inicio_mes).first()
-    
+    ).filter(func.date(Transaccion.fecha) >= inicio_mes, *filtro_negocio).first()
+
     # Top clientes frecuentes (últimos 30 días)
     clientes_frecuentes = db.session.query(
         Cliente,
         func.count(Transaccion.id).label('total_transacciones')
     ).join(Transaccion).filter(
-        func.date(Transaccion.fecha) >= fecha_limite
+        func.date(Transaccion.fecha) >= fecha_limite,
+        *filtro_negocio
     ).group_by(
         Cliente.id
     ).order_by(
@@ -67,7 +73,7 @@ def lista():
     page = request.args.get('page', 1, type=int)
     per_page = 50
     
-    pagination = Transaccion.query.options(
+    pagination = query_negocio(Transaccion).options(
         joinedload(Transaccion.cliente),
         joinedload(Transaccion.servicio)
     ).order_by(Transaccion.fecha.desc()).paginate(
@@ -83,8 +89,8 @@ def lista():
 @transacciones.route('/cliente/<int:cliente_id>')
 @login_required
 def cliente_historial(cliente_id):
-    cliente = Cliente.query.get_or_404(cliente_id)
-    transacciones = Transaccion.query.options(
+    cliente = get_negocio_o_404(Cliente, cliente_id)
+    transacciones = query_negocio(Transaccion).options(
         joinedload(Transaccion.servicio)
     ).filter_by(cliente_id=cliente_id).order_by(Transaccion.fecha.desc()).all()
     saldo_disponible = cliente.calcular_saldo_disponible()
@@ -105,7 +111,7 @@ def nueva():
     cliente = None
     
     if cliente_id:
-        cliente = Cliente.query.get_or_404(cliente_id)
+        cliente = get_negocio_o_404(Cliente, cliente_id)
     
     if request.method == 'POST':
         # Obtener datos del formulario
@@ -128,9 +134,9 @@ def nueva():
             flash('Los montos deben ser valores numéricos válidos', 'danger')
             return redirect(url_for('transacciones.nueva', cliente_id=cliente_id))
         
-        # Verificar cliente y servicio
-        cliente = Cliente.query.get(cliente_id)
-        servicio = Servicio.query.get(servicio_id)
+        # Verificar cliente y servicio (solo del negocio actual)
+        cliente = get_negocio_o_404(Cliente, cliente_id)
+        servicio = get_negocio_o_404(Servicio, servicio_id)
         
         if not cliente or not servicio:
             flash('Cliente o servicio no válido', 'danger')
@@ -165,8 +171,8 @@ def nueva():
         return redirect(url_for('transacciones.cliente_historial', cliente_id=cliente_id))
     
     # GET: Mostrar formulario
-    clientes = Cliente.query.all()
-    servicios = Servicio.query.filter_by(activo=True).all()
+    clientes = query_negocio(Cliente).all()
+    servicios = query_negocio(Servicio).filter_by(activo=True).all()
     
     # Si hay un cliente preseleccionado, calculamos su saldo disponible
     saldo_disponible = None
@@ -183,8 +189,8 @@ def nueva():
 @transacciones.route('/editar/<int:transaccion_id>', methods=['GET', 'POST'])
 @login_required
 def editar(transaccion_id):
-    # Obtener la transacción existente
-    transaccion = Transaccion.query.get_or_404(transaccion_id)
+    # Obtener la transacción existente (solo del negocio actual)
+    transaccion = get_negocio_o_404(Transaccion, transaccion_id)
     
     # Si es un POST, actualizar la transacción
     if request.method == 'POST':
@@ -207,8 +213,8 @@ def editar(transaccion_id):
             flash('Los montos deben ser valores numéricos válidos', 'danger')
             return redirect(url_for('transacciones.editar', transaccion_id=transaccion_id))
         
-        # Verificar servicio
-        servicio = Servicio.query.get(servicio_id)
+        # Verificar servicio (solo del negocio actual)
+        servicio = get_negocio_o_404(Servicio, servicio_id)
         
         if not servicio:
             flash('Servicio no válido', 'danger')
@@ -227,7 +233,7 @@ def editar(transaccion_id):
         return redirect(url_for('transacciones.cliente_historial', cliente_id=transaccion.cliente_id))
     
     # GET: Mostrar formulario con datos de la transacción
-    servicios = Servicio.query.filter_by(activo=True).all()
+    servicios = query_negocio(Servicio).filter_by(activo=True).all()
     
     return render_template('transacciones/editar.html', 
                           transaccion=transaccion,
@@ -241,7 +247,7 @@ def registro_rapido():
     """Formulario ultra-rápido: 5 campos, autocompletado, guardar de una."""
     from datetime import date
     
-    servicios = Servicio.query.filter_by(activo=True).all()
+    servicios = query_negocio(Servicio).filter_by(activo=True).all()
     
     if request.method == 'POST':
         cliente_id = request.form.get('cliente_id', type=int)
@@ -252,7 +258,7 @@ def registro_rapido():
         servicio_id = request.form.get('servicio_id', type=int)
         monto_str = request.form.get('monto', '').strip()
         
-        servicio = Servicio.query.get(servicio_id) if servicio_id else None
+        servicio = get_negocio_o_404(Servicio, servicio_id) if servicio_id else None
         if not servicio:
             flash('Seleccioná un servicio', 'danger')
             return redirect(url_for('transacciones.registro_rapido'))
@@ -265,7 +271,7 @@ def registro_rapido():
         
         cliente = None
         if cliente_id:
-            cliente = Cliente.query.get(cliente_id)
+            cliente = get_negocio_o_404(Cliente, cliente_id)
 
         if not cliente:
             if not nombre or not apellido or not documento:
@@ -289,7 +295,7 @@ def registro_rapido():
         
         # Anti-duplicado
         desde = datetime.utcnow() - timedelta(hours=24)
-        dup = Transaccion.query.filter(
+        dup = query_negocio(Transaccion).filter(
             Transaccion.cliente_id == cliente.id,
             Transaccion.servicio_id == servicio.id,
             Transaccion.monto == monto,
@@ -325,7 +331,8 @@ def api_buscar_cliente():
         return {'resultados': []}
     
     like = f'%{q}%'
-    clientes = Cliente.query.filter(
+    # Siempre acotado al negocio actual (lo usa la extensión de Chrome)
+    clientes = query_negocio(Cliente).filter(
         or_(
             Cliente.documento.ilike(like),
             Cliente.nombre.ilike(like),

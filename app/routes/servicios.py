@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from app.decorators import admin_required
 from app.models.cliente import Servicio
 from app import db
+from app.utils.tenancy import query_negocio, get_negocio_o_404
 from datetime import datetime
 
 servicios = Blueprint('servicios', __name__)
@@ -10,7 +11,7 @@ servicios = Blueprint('servicios', __name__)
 @servicios.route('/')
 @login_required
 def lista():
-    servicios_list = Servicio.query.all()
+    servicios_list = query_negocio(Servicio).all()
     return render_template('servicios/lista.html', servicios=servicios_list, now=datetime.now())
 
 @servicios.route('/nuevo', methods=['GET', 'POST'])
@@ -48,7 +49,7 @@ def nuevo():
 @login_required
 @admin_required
 def editar(servicio_id):
-    servicio = Servicio.query.get_or_404(servicio_id)
+    servicio = get_negocio_o_404(Servicio, servicio_id)
     
     if request.method == 'POST':
         nombre = request.form.get('nombre')
@@ -78,7 +79,7 @@ def editar(servicio_id):
 @login_required
 @admin_required
 def eliminar(servicio_id):
-    servicio = Servicio.query.get_or_404(servicio_id)
+    servicio = get_negocio_o_404(Servicio, servicio_id)
     
     # Soft delete: marcar como inactivo en lugar de borrar físicamente
     # Esto preserva el historial de transacciones asociadas

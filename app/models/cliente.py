@@ -9,12 +9,16 @@ cliente_servicio = db.Table('cliente_servicio',
 
 class Cliente(db.Model):
     __tablename__ = 'clientes'
-    
+    __table_args__ = (
+        db.UniqueConstraint('negocio_id', 'documento', name='uq_cliente_negocio_documento'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)
     nombre = db.Column(db.String(64), nullable=False)
     apellido = db.Column(db.String(64), nullable=False)
     fecha_nacimiento = db.Column(db.Date, nullable=False)
-    documento = db.Column(db.String(20), unique=True, nullable=False)
+    documento = db.Column(db.String(20), nullable=False)
     tipo_documento = db.Column(db.String(50), default='NIE')  # NIE, DNI, Pasaporte, etc.
     documento_fecha_emision = db.Column(db.Date)  # Fecha de emisión del documento
     documento_fecha_vencimiento = db.Column(db.Date)  # Fecha de vencimiento del documento
@@ -73,18 +77,20 @@ class Cliente(db.Model):
     
     @classmethod
     def get_documentos_vencidos(cls):
-        """Obtiene todos los clientes con documentos vencidos."""
+        """Obtiene los clientes del negocio actual con documentos vencidos."""
         from datetime import date
-        return cls.query.filter(
+        from app.utils.tenancy import query_negocio
+        return query_negocio(cls).filter(
             cls.documento_fecha_vencimiento < date.today()
         ).all()
-    
+
     @classmethod
     def get_documentos_por_vencer(cls, dias=30):
-        """Obtiene todos los clientes con documentos próximos a vencer."""
+        """Obtiene los clientes del negocio actual con documentos próximos a vencer."""
         from datetime import date, timedelta
+        from app.utils.tenancy import query_negocio
         fecha_limite = date.today() + timedelta(days=dias)
-        return cls.query.filter(
+        return query_negocio(cls).filter(
             cls.documento_fecha_vencimiento >= date.today(),
             cls.documento_fecha_vencimiento <= fecha_limite
         ).all()
@@ -137,9 +143,13 @@ class Cliente(db.Model):
 
 class Servicio(db.Model):
     __tablename__ = 'servicios'
-    
+    __table_args__ = (
+        db.UniqueConstraint('negocio_id', 'nombre', name='uq_servicio_negocio_nombre'),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
-    nombre = db.Column(db.String(64), unique=True, nullable=False)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)
+    nombre = db.Column(db.String(64), nullable=False)
     descripcion = db.Column(db.String(255))
     comision_porcentaje = db.Column(db.Float, default=0)
     activo = db.Column(db.Boolean, default=True)

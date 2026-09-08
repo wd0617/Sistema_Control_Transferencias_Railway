@@ -6,6 +6,7 @@ from app.models.transaccion import Transaccion
 from sqlalchemy import func, and_
 from app.extensions import db
 from app.utils.notificaciones import generar_notificaciones, contar_notificaciones_pendientes
+from app.utils.tenancy import query_negocio, current_negocio_id
 
 main = Blueprint('main', __name__)
 
@@ -31,38 +32,47 @@ def index():
 def dashboard():
     # Generar notificaciones automáticas
     generar_notificaciones()
-    
+
+    # Negocio activo para acotar los agregados globales del dashboard
+    nid = current_negocio_id()
+
     # Obtener conteo total de clientes
-    clientes_count = Cliente.query.count()
-    
+    clientes_count = query_negocio(Cliente).count()
+
     # Obtener transacciones realizadas hoy
     hoy = date.today()
-    transacciones_hoy = Transaccion.query.filter(
+    transacciones_hoy = query_negocio(Transaccion).filter(
         func.date(Transaccion.fecha) == hoy
     ).count()
-    
+
     # Calcular clientes cercanos al límite en una sola query SQL
     limite = current_app.config.get('LIMITE_TRANSFERENCIA_SEMANAL', 999)
     fecha_inicio = datetime.utcnow() - timedelta(days=7)
-    
+
     # Subquery: clientes cuya suma de transacciones semanal > limite - 100
-    clientes_con_gastos = db.session.query(
+    gastos_query = db.session.query(
         Transaccion.cliente_id,
         func.sum(Transaccion.monto).label('total_gastado')
     ).filter(
         Transaccion.fecha >= fecha_inicio
-    ).group_by(
+    )
+    if nid is not None:
+        gastos_query = gastos_query.filter(Transaccion.negocio_id == nid)
+    clientes_con_gastos = gastos_query.group_by(
         Transaccion.cliente_id
     ).having(
         func.sum(Transaccion.monto) > (limite - 100)
     ).subquery()
-    
-    clientes_limite = db.session.query(func.count(Cliente.id)).filter(
+
+    clientes_limite_query = db.session.query(func.count(Cliente.id)).filter(
         Cliente.id.in_(db.session.query(clientes_con_gastos.c.cliente_id))
-    ).scalar() or 0
-    
+    )
+    if nid is not None:
+        clientes_limite_query = clientes_limite_query.filter(Cliente.negocio_id == nid)
+    clientes_limite = clientes_limite_query.scalar() or 0
+
     # Obtener clientes recientes (últimos 5 con actividad)
-    clientes_recientes = Cliente.query.order_by(Cliente.ultima_visita.desc()).limit(5).all()
+    clientes_recientes = query_negocio(Cliente).order_by(Cliente.ultima_visita.desc()).limit(5).all()
     
     # Precalcular saldos de clientes recientes en una sola query
     saldos = {}
@@ -80,7 +90,7 @@ def dashboard():
         saldos = {cid: limite - sumas.get(cid, 0) for cid in recientes_ids}
     
     # Obtener servicios disponibles
-    servicios = Servicio.query.all()
+    servicios = query_negocio(Servicio).all()
     
     # Estadísticas de documentos
     from app.models.documento import DocumentoCliente
@@ -104,7 +114,7 @@ def dashboard():
         else:
             mes_fin = datetime(mes_date.year, mes_date.month + 1, 1)
         
-        count = Transaccion.query.filter(
+        count = query_negocio(Transaccion).filter(
             Transaccion.fecha >= mes_inicio,
             Transaccion.fecha < mes_fin
         ).count()
@@ -112,12 +122,15 @@ def dashboard():
         transacciones_por_mes.append(count)
     
     # 2. Transacciones por servicio
-    servicios_data = db.session.query(
+    servicios_data_query = db.session.query(
         Servicio.nombre,
         func.count(Transaccion.id).label('total')
     ).outerjoin(Transaccion).filter(
         Servicio.activo == True
-    ).group_by(Servicio.id).all()
+    )
+    if nid is not None:
+        servicios_data_query = servicios_data_query.filter(Servicio.negocio_id == nid)
+    servicios_data = servicios_data_query.group_by(Servicio.id).all()
     servicios_chart_labels = [s[0] for s in servicios_data]
     servicios_chart_values = [s[1] for s in servicios_data]
     
@@ -131,7 +144,7 @@ def dashboard():
         else:
             mes_fin = datetime(mes_date.year, mes_date.month + 1, 1)
         
-        count = Cliente.query.filter(
+        count = query_negocio(Cliente).filter(
             Cliente.fecha_registro >= mes_inicio,
             Cliente.fecha_registro < mes_fin
         ).count()

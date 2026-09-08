@@ -5,6 +5,7 @@ class Transaccion(db.Model):
     __tablename__ = 'transacciones'
     
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=True)
     servicio_id = db.Column(db.Integer, db.ForeignKey('servicios.id'), nullable=False)
     monto = db.Column(db.Float, nullable=False)
@@ -21,6 +22,7 @@ class Notificacion(db.Model):
     __tablename__ = 'notificaciones'
     
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=False)
     tipo = db.Column(db.String(50), nullable=False)  # 'recordatorio', 'alerta_limite', 'puede_enviar'
     mensaje = db.Column(db.Text, nullable=False)

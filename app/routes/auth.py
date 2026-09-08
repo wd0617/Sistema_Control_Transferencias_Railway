@@ -18,6 +18,25 @@ def login():
         
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
+            # Bloquear acceso según estado del negocio y del usuario
+            if not user.is_superadmin and user.username != 'admin':
+                estado = user.negocio.estado if user.negocio else None
+                if estado == 'pendiente':
+                    flash('Tu solicitud de acceso aún está pendiente de aprobación.', 'warning')
+                    return render_template('auth/login.html', now=datetime.now())
+                if estado == 'rechazado':
+                    flash('La solicitud de acceso de tu negocio fue rechazada. Contacta con la plataforma.', 'danger')
+                    return render_template('auth/login.html', now=datetime.now())
+                if estado == 'suspendido':
+                    flash('Tu negocio está suspendido. Contacta con la plataforma.', 'danger')
+                    return render_template('auth/login.html', now=datetime.now())
+                if user.negocio is None:
+                    flash('Tu usuario no tiene un negocio asignado. Contacta con la plataforma.', 'danger')
+                    return render_template('auth/login.html', now=datetime.now())
+            if user.activo is False:
+                flash('Tu usuario está desactivado. Contacta con el administrador de tu negocio.', 'danger')
+                return render_template('auth/login.html', now=datetime.now())
+
             login_user(user, remember=True)
             user.last_login = datetime.utcnow()
             

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash
 from app import create_app, db
 from app.models.user import User
+from app.models.negocio import Negocio
 from app.models.cliente import Cliente, Servicio
 from app.models.transaccion import Transaccion, Notificacion
 from app.models.documento import DocumentoCliente
@@ -23,23 +24,36 @@ def poblar_datos_prueba():
         if User.query.first():
             print("La base de datos ya tiene datos, omitiendo la inicialización")
             return
-            
-        # Crear usuario administrador
+
+        # Negocio por defecto (los datos de prueba cuelgan de él)
+        negocio = Negocio(
+            nombre='Negocio principal',
+            slug='negocio-principal',
+            estado='aprobado',
+            aprobado_at=datetime.utcnow(),
+        )
+        db.session.add(negocio)
+        db.session.flush()
+
+        # Crear superadmin (dueño de la plataforma, sin negocio asignado)
         admin = User(
             username='admin',
             email='admin@sistema.com',
             nombre='Administrador',
             apellido='Sistema',
-            is_admin=True
+            is_admin=True,
+            is_superadmin=True,
+            negocio_id=None
         )
         admin.set_password('admin123')
-        
-        # Crear usuario normal
+
+        # Crear usuario normal del negocio por defecto
         user = User(
             username='usuario',
             email='usuario@sistema.com',
             nombre='Usuario',
-            apellido='Normal'
+            apellido='Normal',
+            negocio_id=negocio.id
         )
         user.set_password('usuario123')
         
@@ -254,6 +268,12 @@ def poblar_datos_prueba():
         
         db.session.add_all(documentos)
         
+        # Asignar el negocio por defecto a todos los datos de prueba
+        # (los usuarios ya llevan su negocio_id explícito; el superadmin va sin negocio)
+        for obj in db.session.new:
+            if not isinstance(obj, User) and hasattr(obj, 'negocio_id') and obj.negocio_id is None:
+                obj.negocio_id = negocio.id
+
         # Guardar todos los cambios
         db.session.commit()
         

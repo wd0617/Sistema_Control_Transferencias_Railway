@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required
 from app.models.cliente import Servicio
+from app.utils.tenancy import query_negocio
 from datetime import datetime
 
 calculadora = Blueprint('calculadora', __name__)
@@ -8,7 +9,7 @@ calculadora = Blueprint('calculadora', __name__)
 @calculadora.route('/')
 @login_required
 def index():
-    servicios = Servicio.query.filter_by(activo=True).all()
+    servicios = query_negocio(Servicio).filter_by(activo=True).all()
     return render_template('calculadora/index.html', servicios=servicios, now=datetime.now())
 
 @calculadora.route('/calcular', methods=['POST'])
@@ -18,7 +19,7 @@ def calcular():
         monto = float(request.form.get('monto', 0))
         servicio_id = int(request.form.get('servicio_id', 0))
         
-        servicio = Servicio.query.get(servicio_id)
+        servicio = query_negocio(Servicio).filter_by(id=servicio_id).first()
         if not servicio:
             return jsonify({
                 'success': False,

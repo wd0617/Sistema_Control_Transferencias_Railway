@@ -72,6 +72,37 @@
       display: block;
       margin-bottom: 6px;
     }
+    .config-box {
+      display: none;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+    .config-box.visible {
+      display: block;
+    }
+    .config-box input {
+      width: 100%;
+      padding: 8px;
+      font-size: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+    .config-msg {
+      font-size: 11px;
+      margin-top: 6px;
+      min-height: 14px;
+    }
+    button.link {
+      background: none;
+      color: #666;
+      font-weight: normal;
+      font-size: 11px;
+      padding: 4px;
+      margin-bottom: 0;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -90,6 +121,14 @@
   </div>
 
   <div id="status"></div>
+
+  <button id="btnToggleConfig" class="link">⚙️ Configurar URL del sistema</button>
+  <div id="configBox" class="config-box">
+    <label for="configUrl">URL del sistema de tu negocio:</label>
+    <input type="text" id="configUrl" placeholder="https://tu-negocio.up.railway.app">
+    <button id="btnGuardarConfig" class="secondary" style="margin-top:8px;">💾 Guardar URL</button>
+    <div id="configMsg" class="config-msg"></div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

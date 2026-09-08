@@ -13,6 +13,7 @@ class Producto(db.Model):
     ]
 
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)
     nombre = db.Column(db.String(100), nullable=False)
     categoria = db.Column(db.String(30), default='procesados')
     tipo_medida = db.Column(db.String(20), default='unidad')  # 'unidad' | 'peso'
@@ -43,6 +44,7 @@ class MovimientoProducto(db.Model):
     __tablename__ = 'movimientos_producto'
 
     id = db.Column(db.Integer, primary_key=True)
+    negocio_id = db.Column(db.Integer, db.ForeignKey('negocios.id'), index=True)
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'), nullable=False)
     tipo = db.Column(db.String(20), nullable=False)  # 'entrada' | 'venta'
     cantidad = db.Column(db.Float, nullable=False)

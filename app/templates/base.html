@@ -60,6 +60,19 @@
                             <i class="fas fa-id-card"></i> Documentos
                         </a>
                     </li>
+                    {% if current_user.is_admin or current_user.is_superadmin %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="menuAdmin" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-cogs"></i> Administración
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="menuAdmin">
+                            {% if current_user.is_superadmin %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin.negocios') }}"><i class="fas fa-store me-2"></i>Negocios</a></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin.usuarios') }}"><i class="fas fa-users-cog me-2"></i>Usuarios</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
                     {% if current_user.is_admin %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('data_mgmt.index') }}">
@@ -102,6 +115,13 @@
             </div>
         </div>
     </nav>
+    {% endif %}
+
+    {% if negocio_vista %}
+    <div class="alert alert-info d-flex justify-content-between align-items-center mb-0 rounded-0 py-2 px-3">
+        <span><i class="fas fa-binoculars me-2"></i>Modo soporte: estás viendo la plataforma como <strong>{{ negocio_vista.nombre }}</strong></span>
+        <a href="{{ url_for('admin.salir_vista') }}" class="btn btn-sm btn-outline-dark">Salir</a>
+    </div>
     {% endif %}
 
     <div class="container mt-4">

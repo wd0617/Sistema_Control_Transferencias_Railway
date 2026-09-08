@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import func
 from app import db
 from app.models.producto import Producto, MovimientoProducto
+from app.utils.tenancy import query_negocio, get_negocio_o_404, current_negocio_id
 from datetime import datetime, timedelta
 
 productos = Blueprint('productos', __name__)
@@ -98,7 +99,7 @@ def lista():
     categoria = request.args.get('categoria', '')
     vista = request.args.get('vista', 'lista')
 
-    query = Producto.query.filter_by(activo=True)
+    query = query_negocio(Producto).filter_by(activo=True)
     if categoria:
         query = query.filter_by(categoria=categoria)
     productos_list = query.order_by(Producto.nombre).all()
@@ -153,7 +154,7 @@ def nuevo():
 @login_required
 def editar(producto_id):
     """Editar nombre, precio, categoria y foto de un producto."""
-    producto = Producto.query.get_or_404(producto_id)
+    producto = get_negocio_o_404(Producto, producto_id)
 
     if request.method == 'POST':
         nombre = request.form.get('nombre', '').strip()
@@ -215,7 +216,7 @@ def entrada():
             flash('La cantidad debe ser mayor a cero', 'danger')
             return redirect(url_for('productos.entrada'))
 
-        producto = Producto.query.get_or_404(producto_id)
+        producto = get_negocio_o_404(Producto, producto_id)
         producto.stock_actual += cantidad
 
         unidades = request.form.get('unidades', '').strip()
@@ -235,7 +236,7 @@ def entrada():
         flash(f'Entrada registrada: +{cantidad} {producto.label_medida()} de {producto.nombre}', 'success')
         return redirect(url_for('productos.lista'))
 
-    productos_list = Producto.query.filter_by(activo=True).order_by(Producto.nombre).all()
+    productos_list = query_negocio(Producto).filter_by(activo=True).order_by(Producto.nombre).all()
     return render_template('productos/entrada.html', productos=productos_list)
 
 
@@ -262,7 +263,7 @@ def venta():
             flash('La cantidad debe ser mayor a cero', 'danger')
             return redirect(url_for('productos.venta'))
 
-        producto = Producto.query.get_or_404(producto_id)
+        producto = get_negocio_o_404(Producto, producto_id)
 
         if producto.stock_actual < cantidad:
             flash(f'Stock insuficiente. Disponible: {producto.stock_actual} {producto.label_medida()}', 'danger')
@@ -290,7 +291,7 @@ def venta():
         flash(f'Venta registrada: {cantidad} {producto.label_medida()} de {producto.nombre} = {total:.2f}€', 'success')
         return redirect(url_for('productos.lista'))
 
-    productos_list = Producto.query.filter_by(activo=True).order_by(Producto.nombre).all()
+    productos_list = query_negocio(Producto).filter_by(activo=True).order_by(Producto.nombre).all()
     return render_template('productos/venta.html', productos=productos_list)
 
 
@@ -301,9 +302,10 @@ def dashboard():
     ahora = datetime.now()
     hoy_inicio = ahora.replace(hour=0, minute=0, second=0, microsecond=0)
     hoy_fin = hoy_inicio + timedelta(days=1)
+    nid = current_negocio_id()
 
     # Ventas de hoy
-    ventas_hoy = MovimientoProducto.query.filter(
+    ventas_hoy = query_negocio(MovimientoProducto).filter(
         MovimientoProducto.tipo == 'venta',
         MovimientoProducto.fecha >= hoy_inicio,
         MovimientoProducto.fecha < hoy_fin
@@ -313,7 +315,7 @@ def dashboard():
     cantidad_ventas_hoy = len(ventas_hoy)
 
     # Ventas por producto hoy (para gráfico)
-    ventas_por_producto = db.session.query(
+    ventas_por_producto_query = db.session.query(
         Producto.nombre,
         func.sum(MovimientoProducto.total).label('total'),
         func.sum(MovimientoProducto.cantidad).label('cantidad')
@@ -321,17 +323,23 @@ def dashboard():
         MovimientoProducto.tipo == 'venta',
         MovimientoProducto.fecha >= hoy_inicio,
         MovimientoProducto.fecha < hoy_fin
-    ).group_by(Producto.nombre).order_by(func.sum(MovimientoProducto.total).desc()).all()
+    )
+    if nid is not None:
+        ventas_por_producto_query = ventas_por_producto_query.filter(MovimientoProducto.negocio_id == nid)
+    ventas_por_producto = ventas_por_producto_query.group_by(Producto.nombre).order_by(func.sum(MovimientoProducto.total).desc()).all()
 
     # Ventas por hora hoy (para gráfico de líneas)
-    ventas_por_hora_raw = db.session.query(
+    ventas_por_hora_query = db.session.query(
         func.extract('hour', MovimientoProducto.fecha).label('hora'),
         func.sum(MovimientoProducto.total).label('total')
     ).filter(
         MovimientoProducto.tipo == 'venta',
         MovimientoProducto.fecha >= hoy_inicio,
         MovimientoProducto.fecha < hoy_fin
-    ).group_by(func.extract('hour', MovimientoProducto.fecha)).order_by('hora').all()
+    )
+    if nid is not None:
+        ventas_por_hora_query = ventas_por_hora_query.filter(MovimientoProducto.negocio_id == nid)
+    ventas_por_hora_raw = ventas_por_hora_query.group_by(func.extract('hour', MovimientoProducto.fecha)).order_by('hora').all()
 
     horas = list(range(24))
     totales_por_hora = [0.0] * 24
@@ -340,11 +348,11 @@ def dashboard():
             totales_por_hora[int(hora)] = float(total or 0)
 
     # Estado de stock
-    productos_agotados = Producto.query.filter_by(activo=True).filter(Producto.stock_actual <= 0).order_by(Producto.nombre).all()
-    productos_bajo_stock = Producto.query.filter_by(activo=True).filter(Producto.stock_actual > 0, Producto.stock_actual < 5).order_by(Producto.nombre).all()
+    productos_agotados = query_negocio(Producto).filter_by(activo=True).filter(Producto.stock_actual <= 0).order_by(Producto.nombre).all()
+    productos_bajo_stock = query_negocio(Producto).filter_by(activo=True).filter(Producto.stock_actual > 0, Producto.stock_actual < 5).order_by(Producto.nombre).all()
 
     # Últimas ventas (top 10)
-    ultimas_ventas = MovimientoProducto.query.filter(
+    ultimas_ventas = query_negocio(MovimientoProducto).filter(
         MovimientoProducto.tipo == 'venta'
     ).order_by(MovimientoProducto.fecha.desc()).limit(10).all()
 
@@ -365,7 +373,7 @@ def dashboard():
 @login_required
 def agotar(producto_id):
     """Marca un producto como agotado: stock a cero y registra ajuste."""
-    producto = Producto.query.get_or_404(producto_id)
+    producto = get_negocio_o_404(Producto, producto_id)
 
     if producto.stock_actual <= 0:
         flash(f'{producto.nombre} ya está agotado.', 'info')
@@ -398,7 +406,7 @@ def movimientos():
     desde_str = request.args.get('desde', '')
     hasta_str = request.args.get('hasta', '')
 
-    query = MovimientoProducto.query.join(Producto).order_by(MovimientoProducto.fecha.desc())
+    query = query_negocio(MovimientoProducto).join(Producto).order_by(MovimientoProducto.fecha.desc())
 
     # Ajuste se muestra siempre, salvo que filtren explícitamente por tipo
     if tipo in ('entrada', 'venta', 'ajuste'):
@@ -421,9 +429,12 @@ def movimientos():
     movimientos_list = query.all()
 
     # Totales filtrados
+    nid = current_negocio_id()
     total_ventas = db.session.query(func.sum(MovimientoProducto.total)).filter(
         MovimientoProducto.tipo == 'venta'
     )
+    if nid is not None:
+        total_ventas = total_ventas.filter(MovimientoProducto.negocio_id == nid)
     if desde_str:
         total_ventas = total_ventas.filter(MovimientoProducto.fecha >= datetime.strptime(desde_str, '%Y-%m-%d'))
     if hasta_str:
@@ -433,11 +444,14 @@ def movimientos():
     # Total vendido hoy (siempre visible)
     hoy_inicio = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     hoy_fin = hoy_inicio + timedelta(days=1)
-    total_hoy = db.session.query(func.sum(MovimientoProducto.total)).filter(
+    total_hoy_query = db.session.query(func.sum(MovimientoProducto.total)).filter(
         MovimientoProducto.tipo == 'venta',
         MovimientoProducto.fecha >= hoy_inicio,
         MovimientoProducto.fecha < hoy_fin
-    ).scalar() or 0
+    )
+    if nid is not None:
+        total_hoy_query = total_hoy_query.filter(MovimientoProducto.negocio_id == nid)
+    total_hoy = total_hoy_query.scalar() or 0
 
     return render_template('productos/movimientos.html',
                            movimientos=movimientos_list,
@@ -453,7 +467,7 @@ def movimientos():
 @login_required
 def eliminar(producto_id):
     """Desactivar (eliminar lógicamente) un producto."""
-    producto = Producto.query.get_or_404(producto_id)
+    producto = get_negocio_o_404(Producto, producto_id)
     if producto.foto:
         _eliminar_foto(producto.foto)
     producto.activo = False

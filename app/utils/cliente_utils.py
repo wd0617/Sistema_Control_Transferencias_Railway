@@ -7,6 +7,7 @@ from datetime import date, datetime
 from app import db
 from app.models.cliente import Cliente
 from app.models.documento import DocumentoCliente
+from app.utils.tenancy import query_negocio
 
 
 def _normalizar(texto):
@@ -42,7 +43,7 @@ def _crear_documento_cliente(cliente, numero, tipo, fecha_emision, fecha_vencimi
         fecha_vencimiento = date(2099, 12, 31)
 
     # Evitar duplicados exactos
-    existente = DocumentoCliente.query.filter(
+    existente = query_negocio(DocumentoCliente).filter(
         DocumentoCliente.cliente_id == cliente.id,
         DocumentoCliente.numero_documento.ilike(numero.strip())
     ).first()
@@ -67,7 +68,7 @@ def _mover_documento_principal_a_historial(cliente):
     """Guarda el documento principal actual como DocumentoCliente si no está ya."""
     if not cliente.documento:
         return
-    existente = DocumentoCliente.query.filter(
+    existente = query_negocio(DocumentoCliente).filter(
         DocumentoCliente.cliente_id == cliente.id,
         DocumentoCliente.numero_documento.ilike(cliente.documento)
     ).first()
@@ -109,7 +110,7 @@ def _manejar_cliente_existente(cliente, documento_nuevo, telefono, tipo_document
     tipo_principal = (cliente.tipo_documento or 'OTRO').upper()
 
     # Buscar si ya hay un documento del mismo tipo en historial
-    doc_mismo_tipo = DocumentoCliente.query.filter(
+    doc_mismo_tipo = query_negocio(DocumentoCliente).filter(
         DocumentoCliente.cliente_id == cliente.id,
         DocumentoCliente.tipo_documento == tipo_doc_nuevo
     ).first()
@@ -171,15 +172,15 @@ def obtener_o_crear_cliente_con_documento(
 
     cliente = None
 
-    # 1. Buscar por documento exacto
+    # 1. Buscar por documento exacto (la unicidad del documento es por negocio)
     if documento_norm:
-        cliente = Cliente.query.filter(
+        cliente = query_negocio(Cliente).filter(
             Cliente.documento.ilike(documento_norm)
         ).first()
 
     # 2. Si no, buscar por nombre+apellido exactos (normalizados)
     if not cliente:
-        cliente = Cliente.query.filter(
+        cliente = query_negocio(Cliente).filter(
             db.func.lower(db.func.trim(Cliente.nombre)) == nombre_norm,
             db.func.lower(db.func.trim(Cliente.apellido)) == apellido_norm
         ).first()

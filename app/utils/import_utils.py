@@ -95,8 +95,10 @@ def procesar_csv_clientes(file_content):
             }
             
             # Verificar duplicados en la base de datos
+            # (la unicidad del documento es por negocio)
             from app.models.cliente import Cliente
-            existente = Cliente.query.filter_by(documento=cliente_data['documento']).first()
+            from app.utils.tenancy import query_negocio
+            existente = query_negocio(Cliente).filter_by(documento=cliente_data['documento']).first()
             
             if existente:
                 resultados['duplicados'].append({

@@ -9,13 +9,14 @@
 
 ## Configuración
 
-La extensión ya viene configurada con la URL de Railway. Si cambia, editá estas líneas en `popup.js`:
+Cada negocio tiene su propia instancia del sistema (su propia URL). Para apuntar la extensión a la tuya:
 
-```js
-const BASE_URL = 'https://sistemacontroltransferenciasrailway-production.up.railway.app';
-```
+1. Hacé clic en el ícono ⚡ de la extensión
+2. Apretá **"⚙️ Configurar URL del sistema"**
+3. Ingresá la URL de tu negocio (ej: `https://tu-negocio.up.railway.app`)
+4. Apretá **"💾 Guardar URL"**
 
-Guardá el archivo y recargá la extensión en `chrome://extensions/`.
+La extensión verifica que el sistema responda y guarda la URL con `chrome.storage.sync` (se sincroniza entre tus navegadores con la misma cuenta de Google). Si no configurás nada, usa la URL por defecto que viene en `popup.js` (`DEFAULT_BASE_URL`).
 
 ## Uso
 

@@ -6,6 +6,7 @@ from app.decorators import admin_required
 from app.models.cliente import Cliente
 from app.models.documento import DocumentoCliente
 from app.extensions import db
+from app.utils.tenancy import query_negocio, get_negocio_o_404
 from datetime import datetime, date, timedelta
 
 documentos = Blueprint('documentos', __name__)
@@ -49,7 +50,7 @@ def lista():
         docs = DocumentoCliente.obtener_documentos_por_vencer(dias_alerta)
         titulo = f'Documentos por Vencer (próximos {dias_alerta} días)'
     else:
-        docs = DocumentoCliente.query.order_by(DocumentoCliente.fecha_vencimiento).all()
+        docs = query_negocio(DocumentoCliente).order_by(DocumentoCliente.fecha_vencimiento).all()
         titulo = 'Todos los Documentos'
     
     # Actualizar estados
@@ -71,8 +72,8 @@ def lista():
 @login_required
 def documentos_cliente(cliente_id):
     """Muestra los documentos de un cliente específico."""
-    cliente = Cliente.query.get_or_404(cliente_id)
-    docs = DocumentoCliente.query.filter_by(cliente_id=cliente_id).order_by(
+    cliente = get_negocio_o_404(Cliente, cliente_id)
+    docs = query_negocio(DocumentoCliente).filter_by(cliente_id=cliente_id).order_by(
         DocumentoCliente.es_documento_principal.desc(),
         DocumentoCliente.fecha_vencimiento
     ).all()
@@ -92,7 +93,7 @@ def documentos_cliente(cliente_id):
 @login_required
 def nuevo(cliente_id):
     """Registra un nuevo documento para un cliente."""
-    cliente = Cliente.query.get_or_404(cliente_id)
+    cliente = get_negocio_o_404(Cliente, cliente_id)
     
     if request.method == 'POST':
         tipo_documento = request.form.get('tipo_documento')
@@ -132,7 +133,7 @@ def nuevo(cliente_id):
         
         # Si es documento principal, quitar el flag de otros documentos
         if es_principal:
-            DocumentoCliente.query.filter_by(
+            query_negocio(DocumentoCliente).filter_by(
                 cliente_id=cliente_id, 
                 es_documento_principal=True
             ).update({'es_documento_principal': False})
@@ -173,7 +174,7 @@ def nuevo(cliente_id):
 @login_required
 def editar(documento_id):
     """Edita un documento existente."""
-    doc = DocumentoCliente.query.get_or_404(documento_id)
+    doc = get_negocio_o_404(DocumentoCliente, documento_id)
     cliente = doc.cliente
     
     if request.method == 'POST':
@@ -199,7 +200,7 @@ def editar(documento_id):
         # Documento principal
         es_principal = request.form.get('es_documento_principal') == 'on'
         if es_principal and not doc.es_documento_principal:
-            DocumentoCliente.query.filter_by(
+            query_negocio(DocumentoCliente).filter_by(
                 cliente_id=doc.cliente_id, 
                 es_documento_principal=True
             ).update({'es_documento_principal': False})
@@ -243,7 +244,7 @@ def editar(documento_id):
 @admin_required
 def eliminar(documento_id):
     """Elimina un documento."""
-    doc = DocumentoCliente.query.get_or_404(documento_id)
+    doc = get_negocio_o_404(DocumentoCliente, documento_id)
     cliente_id = doc.cliente_id
     
     db.session.delete(doc)
