@@ -2,6 +2,7 @@
 // (queda guardada en chrome.storage.sync y se sincroniza entre sus navegadores).
 const DEFAULT_BASE_URL = 'https://sistemacontroltransferenciasrailway-production.up.railway.app';
 let BASE_URL = DEFAULT_BASE_URL;
+let NEGOCIO_ID = '';
 
 // Helpers para timeouts
 function withTimeout(promise, ms, reason) {
@@ -34,6 +35,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  // Elementos Barra de Negocio
+  const negocioBar = document.getElementById('negocioBar');
+  const negocioNombre = document.getElementById('negocioNombre');
+  const negocioIdBadge = document.getElementById('negocioIdBadge');
+  const negocioDot = document.getElementById('negocioDot');
+  const usuarioNombre = document.getElementById('usuarioNombre');
+
   // Elementos Tab Recibo
   const btnAuto = document.getElementById('btnEnviar');
   const btnManual = document.getElementById('btnEnviarManual');
@@ -52,17 +60,63 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnToggleConfig = document.getElementById('btnToggleConfig');
   const configBox = document.getElementById('configBox');
   const configUrl = document.getElementById('configUrl');
+  const configNegocioId = document.getElementById('configNegocioId');
   const btnGuardarConfig = document.getElementById('btnGuardarConfig');
   const configMsg = document.getElementById('configMsg');
 
-  // Cargar la URL guardada (si existe)
+  // Cargar configuración guardada
   try {
-    const stored = await chrome.storage.sync.get('baseUrl');
+    const stored = await chrome.storage.sync.get(['baseUrl', 'negocioId']);
     if (stored.baseUrl) BASE_URL = stored.baseUrl;
-  } catch {
-    // Si falla el storage, se usa la URL por defecto
-  }
+    if (stored.negocioId) NEGOCIO_ID = stored.negocioId;
+  } catch {}
+
   configUrl.value = BASE_URL;
+  configNegocioId.value = NEGOCIO_ID;
+
+  // Verificar conexión con el negocio
+  async function verificarConexionNegocio() {
+    negocioDot.className = 'dot';
+    negocioNombre.textContent = 'Verificando...';
+    negocioIdBadge.style.display = 'none';
+
+    try {
+      const urlInfo = `${BASE_URL}/transacciones/api/negocio-info${NEGOCIO_ID ? `?negocio_id=${encodeURIComponent(NEGOCIO_ID)}` : ''}`;
+      const resp = await withTimeout(fetch(urlInfo, { credentials: 'include' }), 6000, 'Timeout');
+      
+      if (resp.status === 401 || resp.status === 403) {
+        negocioDot.className = 'dot warn';
+        negocioNombre.textContent = '⚠️ Sin sesión iniciada';
+        negocioIdBadge.style.display = 'inline-block';
+        negocioIdBadge.textContent = 'Abrir login';
+        negocioBar.style.cursor = 'pointer';
+        negocioBar.onclick = () => chrome.tabs.create({ url: `${BASE_URL}/login` });
+        return false;
+      }
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.ok && data.negocio) {
+          negocioDot.className = 'dot online';
+          negocioNombre.textContent = data.negocio.nombre;
+          negocioIdBadge.style.display = 'inline-block';
+          negocioIdBadge.textContent = `ID: #${data.negocio.id}`;
+          usuarioNombre.textContent = `👤 ${data.usuario || ''}`;
+          negocioBar.style.cursor = 'pointer';
+          negocioBar.onclick = () => chrome.tabs.create({ url: `${BASE_URL}/` });
+          return true;
+        }
+      }
+      throw new Error('Respuesta inválida');
+    } catch (e) {
+      negocioDot.className = 'dot offline';
+      negocioNombre.textContent = '❌ Sin conexión con el sistema';
+      negocioIdBadge.style.display = 'none';
+      return false;
+    }
+  }
+
+  verificarConexionNegocio();
 
   // Toggle caja de configuración
   btnToggleConfig.addEventListener('click', () => {
@@ -72,38 +126,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Guardar URL del negocio
+  // Guardar URL e ID del negocio
   btnGuardarConfig.addEventListener('click', async () => {
     const url = normalizarBaseUrl(configUrl.value);
+    const nid = configNegocioId.value.trim();
     if (!url) {
       configMsg.textContent = '❌ Ingresá una URL válida.';
       configMsg.className = 'config-msg error';
       return;
     }
+
     btnGuardarConfig.disabled = true;
-    configMsg.textContent = 'Verificando...';
+    configMsg.textContent = 'Conectando con el negocio...';
     configMsg.className = 'config-msg';
 
-    let alcanzable = false;
-    try {
-      const resp = await withTimeout(fetch(url, { method: 'GET', redirect: 'follow' }), 8000, 'Timeout');
-      alcanzable = resp.ok || resp.status === 401 || resp.status === 403;
-    } catch {
-      alcanzable = false;
-    }
+    BASE_URL = url;
+    NEGOCIO_ID = nid;
+    await chrome.storage.sync.set({ baseUrl: url, negocioId: nid });
 
-    try {
-      await chrome.storage.sync.set({ baseUrl: url });
-      BASE_URL = url;
-      configMsg.textContent = alcanzable
-        ? '✅ URL guardada y verificada.'
-        : '⚠️ URL guardada, pero el sistema no respondió. Revisá que esté en línea.';
-      configMsg.className = 'config-msg ' + (alcanzable ? 'success' : 'error');
-    } catch {
-      configMsg.textContent = '❌ No se pudo guardar la URL.';
+    const ok = await verificarConexionNegocio();
+    btnGuardarConfig.disabled = false;
+
+    if (ok) {
+      configMsg.textContent = '✅ Conectado y guardado con éxito.';
+      configMsg.className = 'config-msg success';
+    } else {
+      configMsg.textContent = '⚠️ Configuración guardada. Asegurate de tener iniciada la sesión en el sistema.';
       configMsg.className = 'config-msg error';
     }
-    btnGuardarConfig.disabled = false;
   });
 
   // Detectar sitio actual
@@ -161,7 +211,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Buscar y renderizar clientes
 async function buscarClientes(query, container, statusLabel) {
   try {
-    const resp = await fetch(`${BASE_URL}/transacciones/api/verificar-cliente?q=${encodeURIComponent(query)}`);
+    const params = new URLSearchParams();
+    params.set('q', query);
+    if (NEGOCIO_ID) params.set('negocio_id', NEGOCIO_ID);
+
+    const resp = await fetch(`${BASE_URL}/transacciones/api/verificar-cliente?${params.toString()}`, {
+      credentials: 'include'
+    });
     if (!resp.ok) {
       if (resp.status === 401 || resp.status === 403) {
         statusLabel.textContent = '⚠️ Iniciá sesión en el sistema para consultar.';
@@ -195,12 +251,13 @@ async function buscarClientes(query, container, statusLabel) {
       }
 
       // Parámetros para Registro Rápido
-      const params = new URLSearchParams();
-      params.set('doc', c.documento);
-      params.set('nom', c.nombre);
-      if (c.apellido) params.set('ape', c.apellido);
-      if (c.telefono) params.set('tel', c.telefono);
-      const urlRapido = `${BASE_URL}/transacciones/registro-rapido?${params.toString()}`;
+      const p = new URLSearchParams();
+      p.set('doc', c.documento);
+      p.set('nom', c.nombre);
+      if (c.apellido) p.set('ape', c.apellido);
+      if (c.telefono) p.set('tel', c.telefono);
+      if (NEGOCIO_ID) p.set('negocio_id', NEGOCIO_ID);
+      const urlRapido = `${BASE_URL}/transacciones/registro-rapido?${p.toString()}`;
 
       html += `
         <div class="client-card">
@@ -315,15 +372,21 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
 
     status.textContent = 'Analizando en el sistema...';
 
-    const resp = await fetch(BASE_URL + '/transacciones/api/analizar-recibo', {
+    const apiUrl = `${BASE_URL}/transacciones/api/analizar-recibo${NEGOCIO_ID ? `?negocio_id=${encodeURIComponent(NEGOCIO_ID)}` : ''}`;
+    const resp = await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(NEGOCIO_ID ? { 'X-Negocio-Id': NEGOCIO_ID } : {})
+      },
+      credentials: 'include',
       body: JSON.stringify({ texto })
     });
 
     if (!resp.ok) {
       if (resp.status === 404) throw new Error('Error 404: La URL del servidor no existe. Verificá que el sistema esté en línea.');
-      if (resp.status === 401 || resp.status === 403) throw new Error('Error ' + resp.status + ': No estás logueado en el sistema. Abrí el sistema en otra pestaña e iniciá sesión.');
+      if (resp.status === 401 || resp.status === 403) throw new Error('Error de autenticación: No has iniciado sesión en el sistema. Abrí el sistema en otra pestaña e iniciá sesión.');
+      if (resp.status === 400) throw new Error('El servidor rechazó el formato del recibo o falta sesión activa.');
       throw new Error('Error del servidor: ' + resp.status);
     }
 
@@ -338,6 +401,7 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
     if (datos.monto) params.set('mon', String(datos.monto).replace('.', ','));
     if (datos.servicio_hint) params.set('srv', datos.servicio_hint);
     if (datos.referencia) params.set('ref', datos.referencia);
+    if (NEGOCIO_ID) params.set('negocio_id', NEGOCIO_ID);
 
     const url = BASE_URL + '/transacciones/registro-rapido?' + params.toString();
 

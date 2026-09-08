@@ -13,12 +13,28 @@ def current_negocio_id():
     """Devuelve el negocio activo para la petición actual.
 
     - Usuario normal: su propio `negocio_id`.
-    - Superadmin en modo soporte: el negocio guardado en sesión.
+    - Superadmin en modo soporte: el negocio guardado en sesión o especificado en la petición.
     - Superadmin sin modo soporte / sin autenticar: None (ver todo; solo
       deben usarlo los paneles de administración).
     """
     if not current_user or not current_user.is_authenticated:
         return None
+
+    try:
+        from flask import request
+        req_nid = request.args.get('negocio_id') or request.args.get('negocio') or request.headers.get('X-Negocio-Id')
+        if req_nid and (current_user.is_superadmin or not current_user.negocio_id):
+            from app.models.negocio import Negocio
+            if str(req_nid).isdigit():
+                neg = Negocio.query.get(int(req_nid))
+            else:
+                neg = Negocio.query.filter_by(slug=str(req_nid)).first()
+            if neg and neg.esta_aprobado:
+                session['negocio_vista'] = neg.id
+                return neg.id
+    except Exception:
+        pass
+
     if current_user.is_superadmin:
         return session.get('negocio_vista')
     return current_user.negocio_id

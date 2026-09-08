@@ -1,12 +1,15 @@
 // Background service worker para la extensión de Registro Rápido
 const DEFAULT_BASE_URL = 'https://sistemacontroltransferenciasrailway-production.up.railway.app';
 
-async function getBaseUrl() {
+async function getConfig() {
   try {
-    const stored = await chrome.storage.sync.get('baseUrl');
-    return stored.baseUrl || DEFAULT_BASE_URL;
+    const stored = await chrome.storage.sync.get(['baseUrl', 'negocioId']);
+    return {
+      baseUrl: stored.baseUrl || DEFAULT_BASE_URL,
+      negocioId: stored.negocioId || ''
+    };
   } catch {
-    return DEFAULT_BASE_URL;
+    return { baseUrl: DEFAULT_BASE_URL, negocioId: '' };
   }
 }
 
@@ -15,10 +18,15 @@ async function procesarTextoRecibo(texto) {
     throw new Error('No se detectó texto de recibo.');
   }
 
-  const baseUrl = await getBaseUrl();
-  const resp = await fetch(baseUrl + '/transacciones/api/analizar-recibo', {
+  const { baseUrl, negocioId } = await getConfig();
+  const headers = { 'Content-Type': 'application/json' };
+  if (negocioId) headers['X-Negocio-Id'] = negocioId;
+
+  const apiUrl = `${baseUrl}/transacciones/api/analizar-recibo${negocioId ? `?negocio_id=${encodeURIComponent(negocioId)}` : ''}`;
+  const resp = await fetch(apiUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
+    credentials: 'include',
     body: JSON.stringify({ texto })
   });
 
@@ -39,6 +47,7 @@ async function procesarTextoRecibo(texto) {
   if (datos.monto) params.set('mon', String(datos.monto).replace('.', ','));
   if (datos.servicio_hint) params.set('srv', datos.servicio_hint);
   if (datos.referencia) params.set('ref', datos.referencia);
+  if (negocioId) params.set('negocio_id', negocioId);
 
   const url = baseUrl + '/transacciones/registro-rapido?' + params.toString();
   await chrome.tabs.create({ url });

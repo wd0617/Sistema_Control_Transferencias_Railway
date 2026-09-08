@@ -41,8 +41,11 @@ def dashboard():
 
     # Obtener transacciones realizadas hoy
     hoy = date.today()
+    hoy_inicio = datetime.combine(hoy, datetime.min.time())
+    hoy_fin = datetime.combine(hoy, datetime.max.time())
     transacciones_hoy = query_negocio(Transaccion).filter(
-        func.date(Transaccion.fecha) == hoy
+        Transaccion.fecha >= hoy_inicio,
+        Transaccion.fecha <= hoy_fin
     ).count()
 
     # Calcular clientes cercanos al límite en una sola query SQL

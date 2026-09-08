@@ -147,19 +147,24 @@
                 <tbody>
                     {% for transaccion in transacciones %}
                     <tr>
-                        <td>{{ transaccion.fecha.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>{{ transaccion.fecha.strftime('%d/%m/%Y %H:%M') if transaccion.fecha else '-' }}</td>
                         <td>
+                            {% if transaccion.cliente_id and transaccion.cliente %}
                             <a href="{{ url_for('transacciones.cliente_historial', cliente_id=transaccion.cliente_id) }}">
                                 {{ transaccion.cliente.nombre_completo() }}
                             </a>
+                            {% else %}
+                            <span class="text-muted">Sin cliente asignado</span>
+                            {% endif %}
                         </td>
-                        <td>{{ transaccion.servicio.nombre }}</td>
-                        <td>{{ transaccion.monto }}€</td>
-                        <td>{{ transaccion.comision }}€</td>
-                        <td>{{ transaccion.monto + transaccion.comision }}€</td>
-                        <td>{{ transaccion.referencia }}</td>
+                        <td>{{ transaccion.servicio.nombre if transaccion.servicio else 'Sin servicio' }}</td>
+                        <td>{{ "%.2f"|format(transaccion.monto or 0) }}€</td>
+                        <td>{{ "%.2f"|format(transaccion.comision or 0) }}€</td>
+                        <td>{{ "%.2f"|format((transaccion.monto or 0) + (transaccion.comision or 0)) }}€</td>
+                        <td>{{ transaccion.referencia or '-' }}</td>
                         <td>
                             <div class="btn-group btn-group-sm">
+                                {% if transaccion.cliente and transaccion.cliente.telefono %}
                                 <a href="{{ whatsapp_url(transaccion, 'it') }}" target="_blank" class="btn btn-success" title="Invia ricevuta su WhatsApp (Italiano)">
                                     <i class="fab fa-whatsapp"></i>
                                 </a>
@@ -170,6 +175,11 @@
                                     <li><a class="dropdown-item" href="{{ whatsapp_url(transaccion, 'it') }}" target="_blank"><i class="fab fa-whatsapp text-success me-2"></i>🇮🇹 Invia in Italiano</a></li>
                                     <li><a class="dropdown-item" href="{{ whatsapp_url(transaccion, 'es') }}" target="_blank"><i class="fab fa-whatsapp text-success me-2"></i>🇪🇸 Enviar en Español</a></li>
                                 </ul>
+                                {% else %}
+                                <button class="btn btn-outline-secondary disabled" title="Cliente sin teléfono para WhatsApp">
+                                    <i class="fab fa-whatsapp text-muted"></i>
+                                </button>
+                                {% endif %}
                                 <a href="{{ url_for('transacciones.editar', transaccion_id=transaccion.id) }}" class="btn btn-primary" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </a>

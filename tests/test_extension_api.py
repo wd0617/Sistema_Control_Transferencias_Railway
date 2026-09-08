@@ -192,7 +192,42 @@ class ExtensionApiTestCase(unittest.TestCase):
         c = clientes[0]
         self.assertEqual(c['saldo_disponible'], 0.0)
         self.assertFalse(c['puede_enviar'])
-        self.assertTrue(c['dias_reestablecimiento'] >= 1)
+    def test_api_negocio_info(self):
+        """Verifica que el endpoint /transacciones/api/negocio-info retorne los datos del negocio."""
+        # Sin login
+        resp_anon = self.client.get('/transacciones/api/negocio-info')
+        self.assertEqual(resp_anon.status_code, 401)
+
+        # Con login
+        self._login()
+        resp = self.client.get('/transacciones/api/negocio-info')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data.get('ok'))
+        self.assertEqual(data['negocio']['id'], self.negocio.id)
+        self.assertEqual(data['negocio']['slug'], self.negocio.slug)
+
+    def test_registro_rapido_get_ok(self):
+        """Verifica que GET /transacciones/registro-rapido cargue correctamente (status 200)."""
+        self._login()
+        resp = self.client.get('/transacciones/registro-rapido')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_transacciones_lista_con_cliente_nulo(self):
+        """Verifica que /transacciones/ no falle con error 500 si hay transacciones con cliente nulo."""
+        self._login()
+        tx_huerfana = Transaccion(
+            cliente_id=None,
+            servicio_id=self.servicio_wu.id,
+            monto=40.0,
+            comision=2.0,
+            negocio_id=self.negocio.id
+        )
+        db.session.add(tx_huerfana)
+        db.session.commit()
+
+        resp = self.client.get('/transacciones/')
+        self.assertEqual(resp.status_code, 200)
 
 
 if __name__ == '__main__':

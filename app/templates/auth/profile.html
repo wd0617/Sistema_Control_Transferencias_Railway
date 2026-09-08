@@ -81,6 +81,57 @@
             </div>
         </div>
         
+        <!-- Tarjeta de Conexión para Extensión Chrome -->
+        <div class="card shadow mt-4 border-warning">
+            <div class="card-header bg-warning bg-opacity-25 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-dark"><i class="fas fa-bolt text-warning me-2"></i>Conexión con Extensión Chrome</h5>
+                <span class="badge bg-dark">v1.2</span>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    Configura la extensión de Chrome para registrar transferencias en 1 clic directamente desde las webs de Western Union, Ria, MoneyGram o Mondial.
+                </p>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">URL del sistema:</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control bg-light" id="inputUrlSistema" value="{{ request.host_url.rstrip('/') }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('inputUrlSistema').value); alert('¡URL copiada!');">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                {% if user.negocio %}
+                <div class="row g-2 mb-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-bold mb-1">ID de tu Negocio:</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control bg-light fw-bold text-primary" id="inputIdNegocio" value="{{ user.negocio.id }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('inputIdNegocio').value); alert('¡ID copiado!');">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small fw-bold mb-1">Código / Slug:</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control bg-light" id="inputSlugNegocio" value="{{ user.negocio.slug }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('inputSlugNegocio').value); alert('¡Código copiado!');">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="small text-success mt-2">
+                    <i class="fas fa-check-circle me-1"></i> Negocio vinculado: <strong>{{ user.negocio.nombre }}</strong>
+                </div>
+                {% else %}
+                <div class="alert alert-info py-2 small mb-0">
+                    <i class="fas fa-info-circle me-1"></i> Como Superadmin, la extensión se conecta al negocio que estés visualizando en modo soporte o al negocio especificado por ID.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card shadow mt-4">
             <div class="card-header bg-light">
                 <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Seguridad</h5>

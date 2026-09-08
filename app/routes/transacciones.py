@@ -1,10 +1,11 @@
 import re
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, session, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app.models.cliente import Cliente, Servicio
 from app.models.transaccion import Transaccion
 from app import db
+from app.extensions import csrf
 from app.utils.tenancy import query_negocio, get_negocio_o_404, current_negocio_id
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc, or_
@@ -14,11 +15,16 @@ transacciones = Blueprint('transacciones', __name__)
 @transacciones.route('/')
 @login_required
 def lista():
-    # Fechas para filtrados
+    # Fechas para filtrados (usando rangos datetime compatibles con PostgreSQL y SQLite)
     hoy = datetime.now().date()
+    inicio_dia = datetime.combine(hoy, datetime.min.time())
+    fin_dia = datetime.combine(hoy, datetime.max.time())
     inicio_semana = hoy - timedelta(days=hoy.weekday())
+    inicio_semana_dt = datetime.combine(inicio_semana, datetime.min.time())
     inicio_mes = datetime(hoy.year, hoy.month, 1).date()
+    inicio_mes_dt = datetime.combine(inicio_mes, datetime.min.time())
     fecha_limite = hoy - timedelta(days=30)
+    fecha_limite_dt = datetime.combine(fecha_limite, datetime.min.time())
     
     # Filtro por negocio para los agregados globales (None = superadmin sin modo soporte)
     nid = current_negocio_id()
@@ -29,31 +35,31 @@ def lista():
         func.count(Transaccion.id),
         func.coalesce(func.sum(Transaccion.monto), 0),
         func.coalesce(func.sum(Transaccion.comision), 0)
-    ).filter(func.date(Transaccion.fecha) == hoy, *filtro_negocio).first()
+    ).filter(Transaccion.fecha >= inicio_dia, Transaccion.fecha <= fin_dia, *filtro_negocio).first()
 
     stats_semana = db.session.query(
         func.count(Transaccion.id),
         func.coalesce(func.sum(Transaccion.monto), 0),
         func.coalesce(func.sum(Transaccion.comision), 0)
-    ).filter(func.date(Transaccion.fecha) >= inicio_semana, *filtro_negocio).first()
+    ).filter(Transaccion.fecha >= inicio_semana_dt, *filtro_negocio).first()
 
     stats_mes = db.session.query(
         func.count(Transaccion.id),
         func.coalesce(func.sum(Transaccion.monto), 0),
         func.coalesce(func.sum(Transaccion.comision), 0)
-    ).filter(func.date(Transaccion.fecha) >= inicio_mes, *filtro_negocio).first()
+    ).filter(Transaccion.fecha >= inicio_mes_dt, *filtro_negocio).first()
 
     # Top clientes frecuentes (últimos 30 días)
     clientes_frecuentes = db.session.query(
         Cliente,
         func.count(Transaccion.id).label('total_transacciones')
     ).join(Transaccion).filter(
-        func.date(Transaccion.fecha) >= fecha_limite,
+        Transaccion.fecha >= fecha_limite_dt,
         *filtro_negocio
     ).group_by(
         Cliente.id
     ).order_by(
-        desc('total_transacciones')
+        desc(func.count(Transaccion.id))
     ).limit(5).all()
     
     estadisticas = {
@@ -399,7 +405,52 @@ def api_buscar_cliente():
     return {'resultados': resultados}
 
 
+@transacciones.route('/api/negocio-info')
+@csrf.exempt
+def api_negocio_info():
+    """Devuelve datos del negocio activo o identificado por id/slug para la extensión."""
+    from app.models.negocio import Negocio
+    if not current_user or not current_user.is_authenticated:
+        return jsonify({
+            'ok': False,
+            'autenticado': False,
+            'mensaje': 'No has iniciado sesión en el sistema.'
+        }), 401
+
+    nid = current_negocio_id()
+    negocio = Negocio.query.get(nid) if nid else None
+
+    # Si es superadmin y no tiene negocio fijado, asociar al primer negocio aprobado
+    if not negocio and current_user.is_superadmin:
+        negocio = Negocio.query.filter_by(estado='aprobado').first()
+        if negocio:
+            session['negocio_vista'] = negocio.id
+
+    if not negocio:
+        return jsonify({
+            'ok': False,
+            'autenticado': True,
+            'usuario': current_user.username,
+            'negocio': None,
+            'mensaje': 'No hay un negocio seleccionado o asignado.'
+        })
+
+    return jsonify({
+        'ok': True,
+        'autenticado': True,
+        'usuario': current_user.username,
+        'es_superadmin': current_user.is_superadmin,
+        'negocio': {
+            'id': negocio.id,
+            'nombre': negocio.nombre,
+            'slug': negocio.slug,
+            'estado': negocio.estado
+        }
+    })
+
+
 @transacciones.route('/api/analizar-recibo', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_analizar_recibo():
     """AJAX: recibe texto de recibo y devuelve JSON con datos extraídos."""
@@ -411,6 +462,7 @@ def api_analizar_recibo():
 
 
 @transacciones.route('/api/verificar-cliente')
+@csrf.exempt
 @login_required
 def api_verificar_cliente():
     """AJAX: verifica estado, saldo disponible semanal y vigencia de documento del cliente."""
