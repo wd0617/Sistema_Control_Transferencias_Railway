@@ -379,6 +379,13 @@
       <span>💡 Atajo: <strong>Alt + R</strong> o botón ⚡ flotante</span>
     </div>
 
+    <!-- Banner si se detectó recibo en buffer o ventana emergente -->
+    <div id="bufferNotice" style="display:none; background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:8px 10px; margin-bottom:10px; font-size:11px;">
+      <div style="font-weight:700; color:#c2410c; margin-bottom:2px;">⚡ Recibo detectado en ventana de impresión</div>
+      <div id="bufferTextPreview" style="color:#7c2d12; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:6px;"></div>
+      <button id="btnUsarBuffer" style="width:100%; padding:6px; background:#ea580c; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">⚡ Registrar este recibo</button>
+    </div>
+
     <button id="btnEnviar" class="btn-main">📋 Enviar recibo automático</button>
     <button id="btnToggleManual" class="secondary">✏️ Pegar recibo manualmente</button>
 

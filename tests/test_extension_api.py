@@ -180,6 +180,49 @@ class ExtensionApiTestCase(unittest.TestCase):
         self.assertEqual(datos.get('monto'), 878.05)
         self.assertEqual(datos.get('servicio_hint'), 'Ria Money Transfer')
 
+    def test_parsear_recibo_mondial_bony_evita_falso_positivo_ria(self):
+        """Verifica que un recibo de Mondial Bony con palabras bancarias italianas devuelva Mondial y no Ria."""
+        recibo = """
+        RICEVITORIA AUTORIZZATA - OPERAZIONE BANCARIA E FINANZIARIA
+        MONDIAL BONY SERVICE
+        RICEVUTA DI TRASFERIMENTO FONDI
+        
+        DATI DEL MITTENTE:
+        NOME: SOULEYMANE
+        COGNOME: DIALLO
+        DOCUMENTO: Y7654321B
+        TELEFONO: +39 333 9988776
+        
+        DETTAGLI TRANSAZIONE:
+        CODICE TRANSAZIONE: MB987654321
+        TOTALE PAGATO: 420,00 EUR
+        """
+        datos = parsear_recibo(recibo)
+        self.assertEqual(datos.get('servicio_hint'), 'Mondial')
+        self.assertEqual(datos.get('nombre'), 'SOULEYMANE')
+        self.assertEqual(datos.get('apellido'), 'DIALLO')
+        self.assertEqual(datos.get('documento'), 'Y7654321B')
+        self.assertEqual(datos.get('telefono'), '+393339988776')
+        self.assertEqual(datos.get('referencia'), 'MB987654321')
+        self.assertEqual(datos.get('monto'), 420.0)
+
+    def test_parsear_recibo_western_union_wupos_print(self):
+        """Verifica que un recibo de impresión WUPOS devuelva Western Union y extraiga MTCN y monto."""
+        recibo = """
+        WUPOS 2.0 - RECEIPT PRINT
+        WESTERN UNION FINANCIAL SERVICES
+        MTCN: 123 456 7890
+        SENDER: ALBERTO GOMEZ
+        DOCUMENT NUMBER: X1122334A
+        TOTAL AMOUNT: 550,00 EUR
+        """
+        datos = parsear_recibo(recibo)
+        self.assertEqual(datos.get('servicio_hint'), 'Western Union')
+        self.assertEqual(datos.get('nombre'), 'ALBERTO')
+        self.assertEqual(datos.get('apellido'), 'GOMEZ')
+        self.assertEqual(datos.get('referencia'), '1234567890')
+        self.assertEqual(datos.get('monto'), 550.0)
+
     def test_api_analizar_recibo_endpoint(self):
         """Verifica que el endpoint /transacciones/api/analizar-recibo devuelva los datos analizados."""
         self._login()

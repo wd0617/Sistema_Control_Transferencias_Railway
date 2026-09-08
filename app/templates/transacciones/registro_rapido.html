@@ -238,11 +238,26 @@ document.addEventListener('click', function(e) {
     if (p.get('mon')) document.getElementById('monto').value = p.get('mon');
     if (p.get('ref') && document.getElementById('referencia')) document.getElementById('referencia').value = p.get('ref');
     if (p.get('srv')) {
-        const srv = p.get('srv').toUpperCase();
-        const opts = document.getElementById('servicio_id').options;
+        const srvRaw = p.get('srv').toUpperCase().trim();
+        const srvClean = srvRaw.replace(/\b(MONEY|TRANSFER|GLOBAL|SERVICE|BONY)\b/g, '').replace(/[^A-Z0-9]/g, '').trim();
+        const selectServicio = document.getElementById('servicio_id');
+        const opts = selectServicio.options;
+        let matched = false;
+
+        // Pasada 1: coincidencia exacta o de contención
         for (let i = 0; i < opts.length; i++) {
-            if (opts[i].text.toUpperCase().includes(srv)) {
-                document.getElementById('servicio_id').selectedIndex = i;
+            const optFull = opts[i].text.toUpperCase();
+            const optBase = optFull.split('(')[0].trim();
+            const optClean = optBase.replace(/\b(MONEY|TRANSFER|GLOBAL|SERVICE|BONY)\b/g, '').replace(/[^A-Z0-9]/g, '').trim();
+
+            if (optFull.includes(srvRaw) || srvRaw.includes(optBase) || optBase.includes(srvRaw)) {
+                selectServicio.selectedIndex = i;
+                matched = true;
+                break;
+            }
+            if (srvClean && optClean && (optClean.includes(srvClean) || srvClean.includes(optClean))) {
+                selectServicio.selectedIndex = i;
+                matched = true;
                 break;
             }
         }

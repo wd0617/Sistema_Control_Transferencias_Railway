@@ -164,20 +164,51 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true; // async
 });
 
-// Auto-detectar si parece recibo y activar badge + botón flotante
+// Auto-detectar si parece recibo, guardar en buffer anticipado y activar badge + botón flotante
 function verificarReciboEnPagina() {
-  const texto = document.body ? (document.body.innerText || '') : '';
-  const pareceRecibo = /Mittente|Importo|Totale|MTCN|Reference|Amount|Sender|Ordinante|Beneficiario/i.test(texto);
+  const texto = extraerTextoRecibo();
+  if (!texto || texto.length < 40) return;
+
+  const pareceRecibo = /Mittente|Importo|Totale|MTCN|Reference|Amount|Sender|Ordinante|Beneficiario|Mondial|Western Union|Moneygram|Ria Money|Ricevuta/i.test(texto);
   if (pareceRecibo) {
-    chrome.runtime.sendMessage({ action: 'reciboDetectado' }).catch(() => {});
-    inyectarBotonFlotante();
+    // Guardar anticipadamente en el buffer del background (clave para ventanas emergentes que lanzan print dialog)
+    chrome.runtime.sendMessage({
+      action: 'guardarReciboBuffer',
+      texto: texto,
+      url: window.location.href,
+      titulo: document.title
+    }).catch(() => {});
+
+    // Inyectar botón flotante si estamos en una ventana navegable
+    if (window.self === window.top || window.innerWidth > 300) {
+      inyectarBotonFlotante();
+    }
   }
 }
+
+// Interceptar el evento beforeprint de las ventanas emergentes (WU, Mondial, WUPOS, etc.)
+window.addEventListener('beforeprint', () => {
+  const texto = extraerTextoRecibo();
+  if (texto && texto.length > 30) {
+    chrome.runtime.sendMessage({
+      action: 'guardarReciboBuffer',
+      texto: texto,
+      url: window.location.href,
+      titulo: document.title
+    }).catch(() => {});
+  }
+});
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', verificarReciboEnPagina);
 } else {
   verificarReciboEnPagina();
+}
+
+// En ventanas emergentes (popups de window.open), reintentar a los 400ms por render dinámico
+if (window.opener || window.name.includes('print') || window.name.includes('receipt')) {
+  setTimeout(verificarReciboEnPagina, 400);
+  setTimeout(verificarReciboEnPagina, 1200);
 }
 
 // En aplicaciones de una sola página (SPA) o DOM dinámico, observar cambios breves
@@ -186,8 +217,9 @@ const observer = new MutationObserver(() => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     verificarReciboEnPagina();
-  }, 1200);
+  }, 1000);
 });
 if (document.body) {
   observer.observe(document.body, { childList: true, subtree: true });
 }
+

@@ -21,6 +21,71 @@ function normalizarBaseUrl(url) {
   return u;
 }
 
+// Verifica si un texto parece un recibo de transferencia
+function pareceRecibo(texto) {
+  if (!texto || texto.length < 30) return false;
+  return /mittente|importo|totale|mtcn|pin|riferimento|sender|amount|mondial|western union|ria|moneygram/i.test(texto);
+}
+
+// Extraer texto de una pestaña con content script o scripting
+async function extraerTextoDeTab(tabId) {
+  try {
+    const resp = await withTimeout(
+      new Promise((resolve) => {
+        chrome.tabs.sendMessage(tabId, { action: 'extraerRecibo' }, (r) => {
+          if (chrome.runtime.lastError) resolve(null);
+          else resolve(r);
+        });
+      }),
+      2500,
+      'Timeout de content script'
+    );
+    if (resp && resp.texto && resp.texto.length > 30) return resp.texto;
+  } catch {}
+
+  try {
+    const results = await withTimeout(
+      chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          const s = window.getSelection ? window.getSelection().toString().trim() : '';
+          if (s && s.length > 20) return s;
+
+          const modal = document.querySelector('.modal.show, [role="dialog"]:not([aria-hidden="true"]), .receipt-dialog, .swal2-modal, [class*="modal" i][style*="block"], print-preview-app, #print-area, .print-section');
+          if (modal && modal.innerText && modal.innerText.length > 50) return modal.innerText.trim();
+
+          const contenedores = document.querySelectorAll(
+            '[class*="receipt" i], [class*="recibo" i], [class*="ticket" i], ' +
+            '[id*="receipt" i], [id*="recibo" i], [id*="ticket" i], ' +
+            'main, article, .content, .container, body'
+          );
+
+          let mejorTexto = '';
+          for (const el of contenedores) {
+            const t = el.innerText || '';
+            const tieneRemitente = /mittente|sender|ordinante|cliente|customer|nominativo|nome/i.test(t);
+            const tieneMonto = /importo|totale|amount|total|mtcn|pin|riferimento/i.test(t);
+            if (tieneRemitente && tieneMonto) {
+              if (!mejorTexto || t.length < mejorTexto.length) {
+                mejorTexto = t;
+              }
+            }
+          }
+          if (mejorTexto && mejorTexto.length > 80) return mejorTexto.trim();
+
+          return (document.body ? document.body.innerText : '') || '';
+        }
+      }),
+      3500,
+      'Timeout inyectando script'
+    );
+    const txt = results[0]?.result || '';
+    if (txt && txt.length > 30) return txt;
+  } catch {}
+
+  return null;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Pestañas
   const tabBtns = document.querySelectorAll('.tab-btn');
@@ -50,6 +115,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const manualText = document.getElementById('manualText');
   const status = document.getElementById('status');
   const siteLabel = document.getElementById('site');
+  const bufferNotice = document.getElementById('bufferNotice');
+  const bufferTextPreview = document.getElementById('bufferTextPreview');
+  const btnUsarBuffer = document.getElementById('btnUsarBuffer');
 
   // Elementos Tab Cliente
   const inputBuscar = document.getElementById('inputBuscarCliente');
@@ -117,6 +185,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   verificarConexionNegocio();
+
+  // Verificar si hay un recibo en buffer reciente (capturado de ventana emergente / antes de imprimir)
+  try {
+    const storedLocal = await chrome.storage.local.get(['ultimoReciboBuffer']);
+    const buf = storedLocal?.ultimoReciboBuffer;
+    if (buf && buf.texto && (Date.now() - (buf.timestamp || 0)) < 300000) {
+      if (bufferNotice) {
+        bufferNotice.style.display = 'block';
+        const lineas = buf.texto.split('\n').map(l => l.trim()).filter(Boolean);
+        const primera = lineas.slice(0, 2).join(' | ');
+        bufferTextPreview.textContent = primera || 'Recibo detectado';
+        btnUsarBuffer.onclick = async () => {
+          await enviarRecibo({ modo: 'manual', texto: buf.texto, btn: btnUsarBuffer, status });
+          chrome.runtime.sendMessage({ action: 'limpiarReciboBuffer' });
+        };
+      }
+    }
+  } catch (e) {}
 
   // Toggle caja de configuración
   btnToggleConfig.addEventListener('click', () => {
@@ -303,85 +389,53 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
 
     if (modo === 'auto') {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) throw new Error('No se encontró la pestaña activa');
 
-      const url = tab.url || '';
-
-      if (url.startsWith('about:') || url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://')) {
-        throw new Error('No se puede leer esta pestaña del navegador. Probá seleccionando el texto del recibo y usando "Pegar recibo manualmente".');
+      // 1. Intentar leer texto de la pestaña activa
+      if (tab && tab.id) {
+        const url = tab.url || '';
+        if (!url.startsWith('about:') && !url.startsWith('chrome://') && !url.startsWith('chrome-extension://')) {
+          const txtTab = await extraerTextoDeTab(tab.id);
+          if (txtTab && pareceRecibo(txtTab)) {
+            texto = txtTab;
+          }
+        }
       }
 
-      let textoContent = '';
-      let textoInyectado = '';
-
-      // Intento 1: preguntar al content script
-      try {
-        const resp = await withTimeout(
-          new Promise((resolve, reject) => {
-            chrome.tabs.sendMessage(tab.id, { action: 'extraerRecibo' }, (response) => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve(response);
-              }
-            });
-          }),
-          4000,
-          'El content script no respondió'
-        );
-        if (resp && resp.texto) textoContent = resp.texto;
-      } catch (e) {}
-
-      // Intento 2: inyección directa
-      if (!textoContent) {
+      // 2. Si la pestaña activa no tiene recibo o está vacía (como la ventana principal de WU),
+      // revisar si hay un recibo guardado en buffer reciente
+      if (!texto) {
         try {
-          const results = await withTimeout(
-            chrome.scripting.executeScript({
-              target: { tabId: tab.id },
-              func: () => {
-                const seleccion = window.getSelection ? window.getSelection().toString().trim() : '';
-                if (seleccion && seleccion.length > 20) return seleccion;
-
-                const modal = document.querySelector('.modal.show, [role="dialog"]:not([aria-hidden="true"]), .receipt-dialog, .swal2-modal, [class*="modal" i][style*="block"], print-preview-app');
-                if (modal && modal.innerText && modal.innerText.length > 50) {
-                  return modal.innerText.trim();
-                }
-
-                const contenedores = document.querySelectorAll(
-                  '[class*="receipt" i], [class*="recibo" i], [class*="ticket" i], ' +
-                  '[id*="receipt" i], [id*="recibo" i], [id*="ticket" i], ' +
-                  'main, article, .content, .container, body'
-                );
-
-                let mejorTexto = '';
-                for (const el of contenedores) {
-                  const t = el.innerText || '';
-                  const tieneRemitente = /mittente|sender|ordinante|cliente|customer|nominativo|nome/i.test(t);
-                  const tieneMonto = /importo|totale|amount|total|mtcn|pin|riferimento/i.test(t);
-                  if (tieneRemitente && tieneMonto) {
-                    if (!mejorTexto || t.length < mejorTexto.length) {
-                      mejorTexto = t;
-                    }
-                  }
-                }
-
-                if (mejorTexto && mejorTexto.length > 80) {
-                  return mejorTexto.trim();
-                }
-
-                return (document.body ? document.body.innerText : '') || '';
-              }
-            }),
-            5000,
-            'La pestaña no respondió a tiempo'
-          );
-          textoInyectado = results[0]?.result || '';
-        } catch (e) {}
+          const storedLocal = await chrome.storage.local.get(['ultimoReciboBuffer']);
+          const buf = storedLocal?.ultimoReciboBuffer;
+          if (buf && buf.texto && (Date.now() - (buf.timestamp || 0)) < 300000) {
+            texto = buf.texto;
+            status.textContent = '⚡ Usando recibo de ventana de impresión...';
+          }
+        } catch {}
       }
 
-      texto = textoContent || textoInyectado;
-      if (!texto.trim()) {
-        throw new Error('No se pudo leer texto del recibo. Probá seleccionando el texto en la página, copiándolo y usando "Pegar recibo manualmente".');
+      // 3. Si aún no hay texto, escanear todas las demás ventanas/pestañas abiertas
+      if (!texto) {
+        try {
+          const todasTabs = await chrome.tabs.query({});
+          for (const t of todasTabs) {
+            if (!t.id || (tab && t.id === tab.id)) continue;
+            const urlOtitulo = ((t.url || '') + ' ' + (t.title || '')).toLowerCase();
+            const esCandidata = /print|receipt|recibo|wupos|western|mondial|ria|moneygram|ticket|pos/.test(urlOtitulo);
+            if (esCandidata) {
+              const txt = await extraerTextoDeTab(t.id);
+              if (txt && pareceRecibo(txt)) {
+                texto = txt;
+                status.textContent = '⚡ Recibo encontrado en ventana emergente...';
+                break;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (!texto || !texto.trim()) {
+        throw new Error('No se pudo encontrar texto de recibo en las pestañas abiertas. Probá copiando el texto del recibo y usando "Pegar recibo manualmente".');
       }
     }
 
@@ -422,6 +476,9 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
 
     status.textContent = '✅ Abriendo sistema...';
     status.className = 'success';
+
+    // Limpiar buffer tras procesar
+    chrome.runtime.sendMessage({ action: 'limpiarReciboBuffer' });
 
     await chrome.tabs.create({ url });
     window.close();

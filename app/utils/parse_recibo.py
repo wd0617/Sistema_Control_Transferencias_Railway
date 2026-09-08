@@ -411,35 +411,57 @@ def _extraer_fecha_nacimiento(lineas):
 
 
 def _detectar_servicio(texto):
-    """Detecta el servicio de transferencia a partir del texto."""
+    """
+    Detecta el servicio de transferencia a partir del texto.
+    Prioriza Mondial Bony, Western Union y MoneyGram antes de Ria,
+    y usa límites de palabra estrictos para evitar falsos positivos con
+    palabras italianas terminadas en 'ria' (bancaria, ricevitoria, finanziaria, etc.).
+    """
     tu = texto.upper()
-    if 'RIA ' in tu or 'RIA\n' in tu or 'RIAMONEY' in tu:
-        return 'Ria Money Transfer'
-    if 'WESTERN UNION' in tu or 'WU ' in tu:
+
+    # 1. Mondial Bony (prioridad para no confundir con términos bancarios/ricevitorie)
+    if any(k in tu for k in ['MONDIAL BONY', 'MONDIALBONY', 'MONDIAL', 'BONY SERVICE']):
+        return 'Mondial'
+    if re.search(r'\bBONY\b', tu):
+        return 'Mondial'
+
+    # 2. Western Union / WUPOS
+    if 'WESTERN UNION' in tu or 'WUPOS' in tu or re.search(r'\bWU\b', tu):
         return 'Western Union'
-    if 'MONEYGRAM' in tu:
+
+    # 3. MoneyGram
+    if 'MONEYGRAM' in tu or 'MONEY GRAM' in tu:
         return 'MoneyGram'
-    if 'MONDIAL' in tu or 'MONDIAL BONY' in tu:
-        return 'Mondial Bony'
-    if 'MONTY' in tu or 'MONTY GLOBAL' in tu:
+
+    # 4. Monty Global
+    if 'MONTY GLOBAL' in tu or re.search(r'\bMONTY\b', tu):
         return 'Monty'
+
+    # 5. Ria Money Transfer (estricto con \b para que no coincida con 'ricevitoria', 'bancaria', etc.)
+    if re.search(r'\bRIA\b|\bRIA\s+MONEY\b|RIAMONEY|\bRIA\s+FINANCIAL\b', tu):
+        return 'Ria Money Transfer'
+
     return None
 
 
 def _extraer_referencia(lineas, texto):
-    """Extrae código de referencia, MTCN o PIN del recibo."""
+    """Extrae código de referencia, MTCN, número de transacción o PIN del recibo."""
     # 1. MTCN específico (WU - 10 dígitos con o sin guiones/espacios)
     m = re.search(r'\bMTCN\s*[:#-]?\s*([0-9]{3,4}[-\s]?[0-9]{3,4}[-\s]?[0-9]{3,4})\b', texto, re.I)
     if m:
         return re.sub(r'[-\s]', '', m.group(1))
 
-    # 2. Palabras clave comunes
+    # 2. Palabras clave comunes (incluye Mondial Bony, WU y otros)
     keywords = [
-        'CODICE DI RIFERIMENTO', 'CODICE RIFERIMENTO', 'RIFERIMENTO',
-        'NUMERO DI RIFERIMENTO', 'PIN', 'TRANSACTION ID', 'NUMERO TRANSAZIONE',
-        'N. TRANSAZIONE', 'CODICE SPEDIZIONE', 'CODICE ORDINE', 'REFERENCE NUMBER'
+        'CODICE DI RIFERIMENTO', 'CODICE RIFERIMENTO', 'NUMERO DI RIFERIMENTO',
+        'CODICE TRANSAZIONE', 'NUMERO TRANSAZIONE', 'N. TRANSAZIONE', 'N° TRANSAZIONE',
+        'TRANSACTION ID', 'TRANSACTION NUMBER', 'TRX ID', 'TRANSAZIONE ID',
+        'CODICE OPERAZIONE', 'NUMERO OPERAZIONE', 'N. OPERAZIONE', 'RIFERIMENTO OPERAZIONE',
+        'CODICE DI TRASFERIMENTO', 'CODICE TRASFERIMENTO', 'CODICE DI INVIO', 'CODICE INVIO',
+        'CODICE SPEDIZIONE', 'CODICE ORDINE', 'REFERENCE NUMBER', 'REFERENCE NO',
+        'REF NUMBER', 'RIFERIMENTO', 'PIN', 'ORDER PIN'
     ]
-    for linea in lineas:
+    for i, linea in enumerate(lineas):
         lu = linea.upper()
         for kw in keywords:
             if kw in lu:
@@ -447,10 +469,17 @@ def _extraer_referencia(lineas, texto):
                 val_limpio = re.sub(r'[^\w-]', '', val)
                 if val_limpio and len(val_limpio) >= 6:
                     return val_limpio
+                # Si en la misma línea no estaba, revisar la línea siguiente (maquetaciones en tabla)
+                if i + 1 < len(lineas):
+                    cand = lineas[i + 1].strip()
+                    cand_limpio = re.sub(r'[^\w-]', '', cand)
+                    if cand_limpio and len(cand_limpio) >= 6 and not any(k in cand.upper() for k in ['EUR', 'EURO', '€', 'DATA', 'ORA']):
+                        return cand_limpio
 
     # 3. Fallback: buscar secuencias tipo MTCN o PIN sueltas
-    m2 = re.search(r'\b(?:MTCN|PIN|REF)\b\s*[:]?\s*([A-Z0-9-]{6,16})\b', texto, re.I)
+    m2 = re.search(r'\b(?:MTCN|PIN|REF|TRX)\b\s*[:]?\s*([A-Z0-9-]{6,16})\b', texto, re.I)
     if m2:
         return m2.group(1)
 
     return None
+
