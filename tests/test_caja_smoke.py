@@ -139,6 +139,14 @@ class CajaSmokeTestCase(unittest.TestCase):
             self.assertEqual(resumen['total_salidas_manuales'], 10.0)
             self.assertEqual(resumen['efectivo_esperado'], 330.0)
 
+            # Verificar desglose por empresa remesadora (a depositar)
+            self.assertEqual(len(resumen['desglose_servicios']), 1)
+            wu_desglose = resumen['desglose_servicios'][0]
+            self.assertEqual(wu_desglose['nombre'], 'Western Union')
+            self.assertEqual(wu_desglose['monto_enviado'], 100.0)
+            self.assertEqual(wu_desglose['total_cobrado'], 105.0)
+            self.assertEqual(resumen['total_principal_remesas'], 100.0)
+
             # 6. Cierre con exactamente 330.0 €
             caja.fecha_cierre = datetime.utcnow()
             caja.usuario_cierre_id = self.user_a.id

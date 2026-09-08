@@ -67,7 +67,45 @@ class CajaSesion(db.Model):
         total_entradas_manuales = sum(m.monto for m in movs if m.tipo == 'entrada')
         total_salidas_manuales = sum(m.monto for m in movs if m.tipo == 'salida')
 
-        # 4. Efectivo esperado en caja
+        # 4. Desglose detallado por Empresa Remesadora (Western Union, Ria, MoneyGram...)
+        from app.models.cliente import Servicio
+        servicios_tx = db.session.query(
+            Servicio.id,
+            Servicio.nombre,
+            func.coalesce(func.sum(Transaccion.monto), 0.0).label('monto_enviado'),
+            func.coalesce(func.sum(Transaccion.comision), 0.0).label('comision_cobrada'),
+            func.coalesce(func.sum(Transaccion.monto + Transaccion.comision), 0.0).label('total_cobrado'),
+            func.count(Transaccion.id).label('cantidad')
+        ).join(Transaccion, Transaccion.servicio_id == Servicio.id)\
+         .filter(
+             Transaccion.negocio_id == self.negocio_id,
+             Transaccion.fecha >= self.fecha_apertura,
+             Transaccion.fecha <= fecha_fin
+         )\
+         .group_by(Servicio.id, Servicio.nombre)\
+         .order_by(func.sum(Transaccion.monto + Transaccion.comision).desc())\
+         .all()
+
+        desglose_servicios = []
+        total_principal_remesas = 0.0
+        total_comisiones_remesas = 0.0
+
+        for s_id, s_nombre, m_env, c_cob, t_cob, cant in servicios_tx:
+            m_env_f = float(m_env or 0.0)
+            c_cob_f = float(c_cob or 0.0)
+            t_cob_f = float(t_cob or 0.0)
+            total_principal_remesas += m_env_f
+            total_comisiones_remesas += c_cob_f
+            desglose_servicios.append({
+                'servicio_id': s_id,
+                'nombre': s_nombre,
+                'monto_enviado': m_env_f,      # Lo que se debe depositar al sistema mayorista
+                'comision_cobrada': c_cob_f,   # Comisión cobrada al cliente
+                'total_cobrado': t_cob_f,      # Total recibido en mano por esa empresa
+                'cantidad': int(cant)
+            })
+
+        # 5. Efectivo esperado en caja
         efectivo_esperado = (
             self.monto_inicial
             + total_tx
@@ -84,7 +122,10 @@ class CajaSesion(db.Model):
             'conteo_ventas': conteo_ventas,
             'total_entradas_manuales': total_entradas_manuales,
             'total_salidas_manuales': total_salidas_manuales,
-            'efectivo_esperado': round(efectivo_esperado, 2)
+            'efectivo_esperado': round(efectivo_esperado, 2),
+            'desglose_servicios': desglose_servicios,
+            'total_principal_remesas': round(total_principal_remesas, 2),
+            'total_comisiones_remesas': round(total_comisiones_remesas, 2)
         }
 
     def __repr__(self):

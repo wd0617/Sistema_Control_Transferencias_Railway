@@ -144,6 +144,25 @@
             </span>
         </div>
 
+        {% if resumen.desglose_servicios %}
+        <div class="double-line"></div>
+        <div class="text-center fw-bold" style="font-size: 11px; margin-bottom: 4px;">
+            DEPÓSITOS A REMESADORAS
+        </div>
+        <div class="line"></div>
+        {% for s in resumen.desglose_servicios %}
+        <div class="row" style="font-size: 11px;">
+            <span class="fw-bold">{{ s.nombre[:14] }} ({{ s.cantidad }}):</span>
+            <span class="fw-bold">{{ s.monto_enviado | smart_money }}</span>
+        </div>
+        {% endfor %}
+        <div class="line"></div>
+        <div class="row fw-bold" style="font-size: 11px;">
+            <span>TOTAL A DEPOSITAR:</span>
+            <span>{{ resumen.total_principal_remesas | smart_money }}</span>
+        </div>
+        {% endif %}
+
         {% if movimientos %}
         <div class="double-line"></div>
         <div class="fw-bold" style="margin-bottom: 4px;">MOVIMIENTOS MANUALES:</div>
