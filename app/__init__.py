@@ -186,6 +186,10 @@ def create_app(config_class=Config):
             return "{:.2f} €".format(f)
         except (TypeError, ValueError):
             return value
+
+    from app.utils.whatsapp_utils import generar_url_whatsapp, generar_mensaje_whatsapp
+    app.jinja_env.globals['whatsapp_url'] = generar_url_whatsapp
+    app.jinja_env.globals['whatsapp_mensaje'] = generar_mensaje_whatsapp
     
     return app
 

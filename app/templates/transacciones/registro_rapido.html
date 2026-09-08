@@ -21,6 +21,31 @@
             </div>
         </div>
 
+        <!-- Banner de Envío Exitoso con Botón WhatsApp -->
+        {% if ultimo_envio %}
+        <div class="alert alert-success border-success shadow mb-4 p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center">
+                <div class="mb-2 mb-md-0">
+                    <h5 class="alert-heading mb-1 text-success"><i class="fas fa-check-circle me-2"></i>¡Transacción Registrada!</h5>
+                    <div>
+                        <strong>{{ ultimo_envio.cliente }}</strong> — <span class="fs-6 fw-bold">{{ ultimo_envio.monto }} €</span> ({{ ultimo_envio.servicio }})
+                        {% if ultimo_envio.referencia %}
+                        <span class="badge bg-light text-dark border ms-1">Ref/MTCN: {{ ultimo_envio.referencia }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ ultimo_envio.wa_url_it }}" target="_blank" class="btn btn-success fw-bold shadow-sm">
+                        <i class="fab fa-whatsapp me-2"></i>Invia WhatsApp (Italiano 🇮🇹)
+                    </a>
+                    <a href="{{ ultimo_envio.wa_url_es }}" target="_blank" class="btn btn-outline-success" title="Enviar en Español">
+                        🇪🇸 Español
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Formulario principal -->
         <div class="card shadow">
             <div class="card-body">
@@ -71,6 +96,11 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label text-muted small"><i class="fas fa-barcode me-1"></i>Código de Referencia / MTCN (opcional)</label>
+                        <input type="text" name="referencia" id="referencia" class="form-control" placeholder="Ej: 1234567890">
+                    </div>
+
                     <div class="d-grid mt-3">
                         <button type="submit" class="btn btn-success btn-lg">
                             <i class="fas fa-save me-2"></i>Guardar transacción
@@ -107,6 +137,7 @@ function analizarRecibo() {
             buscarClientePorDocumento(data.documento);
         }
         if (data.telefono) document.getElementById('telefono').value = data.telefono;
+        if (data.referencia && document.getElementById('referencia')) document.getElementById('referencia').value = data.referencia;
         if (data.monto) document.getElementById('monto').value = data.monto.toFixed(2).replace('.', ',');
         // Seleccionar servicio si coincide
         if (data.servicio_hint) {

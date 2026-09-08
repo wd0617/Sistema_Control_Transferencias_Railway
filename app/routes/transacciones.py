@@ -308,18 +308,45 @@ def registro_rapido():
             return redirect(url_for('transacciones.registro_rapido'))
         
         comision = round(monto * (servicio.comision_porcentaje or 0) / 100, 2)
-        db.session.add(Transaccion(
+        referencia = request.form.get('referencia', '').strip()
+        tx = Transaccion(
             cliente_id=cliente.id,
             servicio_id=servicio.id,
             monto=monto,
             comision=comision,
+            referencia=referencia or None,
             creado_por=current_user.id
-        ))
+        )
+        db.session.add(tx)
         db.session.commit()
+
+        from app.utils.whatsapp_utils import generar_url_whatsapp
+        session['ultimo_envio'] = {
+            'id': tx.id,
+            'cliente': cliente.nombre_completo(),
+            'telefono': cliente.telefono or '',
+            'monto': f"{monto:.2f}",
+            'servicio': servicio.nombre,
+            'referencia': referencia or '',
+            'wa_url_it': generar_url_whatsapp(tx, idioma='it'),
+            'wa_url_es': generar_url_whatsapp(tx, idioma='es')
+        }
         flash(f'✅ {cliente.nombre_completo()} — {monto:.2f}€ ({servicio.nombre})', 'success')
         return redirect(url_for('transacciones.registro_rapido'))
     
-    return render_template('transacciones/registro_rapido.html', servicios=servicios)
+    ultimo_envio = session.pop('ultimo_envio', None)
+    return render_template('transacciones/registro_rapido.html', servicios=servicios, ultimo_envio=ultimo_envio)
+
+
+@transacciones.route('/<int:transaccion_id>/whatsapp')
+@login_required
+def whatsapp_redirect(transaccion_id):
+    """Redirige al enlace de WhatsApp de una transacción."""
+    transaccion = get_negocio_o_404(Transaccion, transaccion_id)
+    lang = request.args.get('lang', 'it')
+    from app.utils.whatsapp_utils import generar_url_whatsapp
+    url = generar_url_whatsapp(transaccion, idioma=lang)
+    return redirect(url)
 
 
 @transacciones.route('/api/buscar-cliente')
