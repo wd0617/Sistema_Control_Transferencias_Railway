@@ -120,7 +120,7 @@ function analizarRecibo() {
     const texto = document.getElementById('texto_recibo').value;
     if (!texto.trim()) return;
 
-    fetch('/api/analizar-recibo', {
+    fetch('/transacciones/api/analizar-recibo', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -135,6 +135,8 @@ function analizarRecibo() {
         if (data.documento) {
             document.getElementById('documento').value = data.documento;
             buscarClientePorDocumento(data.documento);
+        } else if (data.nombre && data.apellido) {
+            buscarClientePorNombre(data.nombre + ' ' + data.apellido);
         }
         if (data.telefono) document.getElementById('telefono').value = data.telefono;
         if (data.referencia && document.getElementById('referencia')) document.getElementById('referencia').value = data.referencia;
@@ -164,7 +166,7 @@ document.getElementById('documento').addEventListener('input', function(e) {
 });
 
 function buscarCliente(q) {
-    fetch('/api/buscar-cliente?q=' + encodeURIComponent(q))
+    fetch('/transacciones/api/buscar-cliente?q=' + encodeURIComponent(q))
     .then(r => r.json())
     .then(data => {
         const box = document.getElementById('sugerencias');
@@ -187,7 +189,19 @@ function buscarCliente(q) {
 }
 
 function buscarClientePorDocumento(doc) {
-    fetch('/api/buscar-cliente?q=' + encodeURIComponent(doc))
+    fetch('/transacciones/api/buscar-cliente?q=' + encodeURIComponent(doc))
+    .then(r => r.json())
+    .then(data => {
+        const lista = data.resultados || [];
+        if (lista.length === 1) {
+            const c = lista[0];
+            seleccionarCliente(c.id, c.documento, c.nombre, c.apellido, c.telefono || '');
+        }
+    });
+}
+
+function buscarClientePorNombre(nombreCompleto) {
+    fetch('/transacciones/api/buscar-cliente?q=' + encodeURIComponent(nombreCompleto))
     .then(r => r.json())
     .then(data => {
         const lista = data.resultados || [];
@@ -222,6 +236,7 @@ document.addEventListener('click', function(e) {
     if (p.get('ape')) document.getElementById('apellido').value = p.get('ape');
     if (p.get('tel')) document.getElementById('telefono').value = p.get('tel');
     if (p.get('mon')) document.getElementById('monto').value = p.get('mon');
+    if (p.get('ref') && document.getElementById('referencia')) document.getElementById('referencia').value = p.get('ref');
     if (p.get('srv')) {
         const srv = p.get('srv').toUpperCase();
         const opts = document.getElementById('servicio_id').options;
@@ -232,9 +247,12 @@ document.addEventListener('click', function(e) {
             }
         }
     }
-    // Si hay documento, buscar cliente
+    // Si hay documento, buscar cliente en sistema para autocompletar
     if (p.get('doc')) {
         setTimeout(() => buscarClientePorDocumento(p.get('doc')), 300);
+    } else if (p.get('nom') && p.get('ape')) {
+        // Fallback: si el recibo no trajo documento pero sí nombre, buscar si ya existe
+        setTimeout(() => buscarClientePorNombre(p.get('nom') + ' ' + p.get('ape')), 350);
     }
 })();
 </script>

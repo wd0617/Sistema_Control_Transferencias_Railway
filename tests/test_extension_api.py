@@ -127,7 +127,7 @@ class ExtensionApiTestCase(unittest.TestCase):
         self.assertEqual(datos.get('monto'), 250.0)
 
     def test_parsear_recibo_pin_ria(self):
-        """Verifica que se extraiga el PIN de orden de Ria."""
+        """Verifica que se extraiga el PIN, remitente y documento de orden de Ria."""
         recibo = """
         RIA MONEY TRANSFER
         ORDER PIN: 123456789
@@ -138,6 +138,47 @@ class ExtensionApiTestCase(unittest.TestCase):
         datos = parsear_recibo(recibo)
         self.assertEqual(datos.get('referencia'), '123456789')
         self.assertEqual(datos.get('monto'), 300.0)
+        self.assertEqual(datos.get('nombre'), 'GIUSEPPE')
+        self.assertEqual(datos.get('apellido'), 'VERDI')
+        self.assertEqual(datos.get('documento'), 'X9876543Z')
+        self.assertEqual(datos.get('servicio_hint'), 'Ria Money Transfer')
+
+    def test_parsear_recibo_ria_multilinea_tabla(self):
+        """Verifica extracción cuando las etiquetas y valores están en líneas separadas (tablas web)."""
+        recibo = """
+        Ria Money Transfer
+        Ricevuta di Trasferimento
+        
+        DATI DEL MITTENTE
+        Nome e cognome
+        MARCO AURELIO
+        Numero documento
+        Passaporto YA5544332
+        Telefono
+        +39 345 6789012
+        
+        DATI DEL BENEFICIARIO
+        Nome e cognome
+        MARIA CONCEPCION
+        Paese
+        COLOMBIA
+        
+        DETTAGLI DEL PAGAMENTO
+        PIN
+        56399431
+        Importo
+        850,00 EUR
+        Totale
+        878,05 EUR
+        """
+        datos = parsear_recibo(recibo)
+        self.assertEqual(datos.get('nombre'), 'MARCO')
+        self.assertEqual(datos.get('apellido'), 'AURELIO')
+        self.assertEqual(datos.get('documento'), 'YA5544332')
+        self.assertEqual(datos.get('telefono'), '+393456789012')
+        self.assertEqual(datos.get('referencia'), '56399431')
+        self.assertEqual(datos.get('monto'), 878.05)
+        self.assertEqual(datos.get('servicio_hint'), 'Ria Money Transfer')
 
     def test_api_analizar_recibo_endpoint(self):
         """Verifica que el endpoint /transacciones/api/analizar-recibo devuelva los datos analizados."""

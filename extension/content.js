@@ -1,33 +1,43 @@
 // Content script: ayuda a extraer texto de recibos e inyecta botón flotante de 1-clic.
 
 function extraerTextoRecibo() {
-  // 1) Si el usuario tiene texto seleccionado, usar eso (muy útil en popups)
+  // 1) Si el usuario tiene texto seleccionado, usar eso
   const seleccion = window.getSelection ? window.getSelection().toString().trim() : '';
   if (seleccion && seleccion.length > 20) {
     return seleccion;
   }
 
-  // 2) Intentar encontrar el contenedor del recibo
-  const posibles = document.querySelectorAll(
+  // 2) Buscar si hay un modal abierto o área de impresión
+  const modal = document.querySelector('.modal.show, [role="dialog"]:not([aria-hidden="true"]), .receipt-dialog, .swal2-modal, [class*="modal" i][style*="block"], print-preview-app');
+  if (modal && modal.innerText && modal.innerText.length > 50) {
+    return modal.innerText.trim();
+  }
+
+  // 3) Buscar contenedores que contengan TANTO remitente COMO monto/transacción
+  const contenedores = document.querySelectorAll(
     '[class*="receipt" i], [class*="recibo" i], [class*="ticket" i], ' +
-    '[id*="receipt" i], [id*="recibo" i], ' +
-    'table, .container, .content, main, article, [role="dialog"]'
+    '[id*="receipt" i], [id*="recibo" i], [id*="ticket" i], ' +
+    'main, article, .content, .container, body'
   );
 
-  let mejor = document.body;
-  for (const el of posibles) {
-    const texto = el.innerText || '';
-    if (/Mittente|Importo|Totale|MTCN|Reference|Amount|Sender|Ordinante|Beneficiario/i.test(texto)) {
-      if (texto.length < 8000) {
-        mejor = el;
-        break; // el primero pequeño que tenga keywords
+  let mejorTexto = '';
+  for (const el of contenedores) {
+    const t = el.innerText || '';
+    const tieneRemitente = /mittente|sender|ordinante|cliente|customer|nominativo|nome/i.test(t);
+    const tieneMonto = /importo|totale|amount|total|mtcn|pin|riferimento/i.test(t);
+    if (tieneRemitente && tieneMonto) {
+      if (!mejorTexto || t.length < mejorTexto.length) {
+        mejorTexto = t;
       }
     }
   }
 
-  // 3) Si body entero es muy corto (popups suelen ser < 3000 chars), devolver todo
-  const texto = mejor.innerText || '';
-  return texto;
+  if (mejorTexto && mejorTexto.length > 80) {
+    return mejorTexto.trim();
+  }
+
+  // 4) Si no hay un contenedor único que tenga ambos, tomar todo el texto de la pantalla
+  return (document.body ? document.body.innerText : '') || '';
 }
 
 // Inyectar botón flotante de 1-clic en la página

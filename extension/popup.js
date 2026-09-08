@@ -342,19 +342,34 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
                 const seleccion = window.getSelection ? window.getSelection().toString().trim() : '';
                 if (seleccion && seleccion.length > 20) return seleccion;
 
-                const posibles = document.querySelectorAll(
+                const modal = document.querySelector('.modal.show, [role="dialog"]:not([aria-hidden="true"]), .receipt-dialog, .swal2-modal, [class*="modal" i][style*="block"], print-preview-app');
+                if (modal && modal.innerText && modal.innerText.length > 50) {
+                  return modal.innerText.trim();
+                }
+
+                const contenedores = document.querySelectorAll(
                   '[class*="receipt" i], [class*="recibo" i], [class*="ticket" i], ' +
-                  '[id*="receipt" i], [id*="recibo" i], ' +
-                  'table, .container, .content, main, article, [role="dialog"]'
+                  '[id*="receipt" i], [id*="recibo" i], [id*="ticket" i], ' +
+                  'main, article, .content, .container, body'
                 );
-                let mejor = document.body;
-                for (const el of posibles) {
+
+                let mejorTexto = '';
+                for (const el of contenedores) {
                   const t = el.innerText || '';
-                  if (/Mittente|Importo|Totale|MTCN|Reference|Amount|Sender|Ordinante|Beneficiario/i.test(t)) {
-                    if (t.length < 8000) { mejor = el; break; }
+                  const tieneRemitente = /mittente|sender|ordinante|cliente|customer|nominativo|nome/i.test(t);
+                  const tieneMonto = /importo|totale|amount|total|mtcn|pin|riferimento/i.test(t);
+                  if (tieneRemitente && tieneMonto) {
+                    if (!mejorTexto || t.length < mejorTexto.length) {
+                      mejorTexto = t;
+                    }
                   }
                 }
-                return mejor.innerText || '';
+
+                if (mejorTexto && mejorTexto.length > 80) {
+                  return mejorTexto.trim();
+                }
+
+                return (document.body ? document.body.innerText : '') || '';
               }
             }),
             5000,
