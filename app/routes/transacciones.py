@@ -325,29 +325,51 @@ def registro_rapido():
 @transacciones.route('/api/buscar-cliente')
 @login_required
 def api_buscar_cliente():
-    """AJAX: busca clientes por documento, nombre o teléfono."""
+    """AJAX: busca clientes por documento (principal o secundario), nombre o teléfono."""
+    from app.models.documento import DocumentoCliente
     q = request.args.get('q', '').strip()
     if len(q) < 2:
         return {'resultados': []}
     
     like = f'%{q}%'
-    # Siempre acotado al negocio actual (lo usa la extensión de Chrome)
+    # Buscar IDs de clientes cuyos documentos secundarios coincidan
+    doc_cliente_ids = query_negocio(DocumentoCliente).filter(
+        DocumentoCliente.numero_documento.ilike(like)
+    ).with_entities(DocumentoCliente.cliente_id).subquery()
+
+    # Siempre acotado al negocio actual (lo usa el registro rápido y la extensión)
     clientes = query_negocio(Cliente).filter(
         or_(
             Cliente.documento.ilike(like),
+            Cliente.id.in_(doc_cliente_ids),
             Cliente.nombre.ilike(like),
             Cliente.apellido.ilike(like),
             Cliente.telefono.ilike(like)
         )
-    ).limit(8).all()
+    ).limit(10).all()
     
-    return {
-        'resultados': [
-            {'id': c.id, 'documento': c.documento, 'nombre': c.nombre,
-             'apellido': c.apellido, 'telefono': c.telefono or ''}
-            for c in clientes
-        ]
-    }
+    resultados = []
+    for c in clientes:
+        # Detectar si coincidió por documento secundario
+        coincidencia_sec = None
+        docs_secundarios = []
+        for d in c.documentos:
+            docs_secundarios.append(f"{d.tipo_documento}: {d.numero_documento}")
+            if q.lower() in d.numero_documento.lower():
+                coincidencia_sec = f"{d.tipo_documento} {d.numero_documento}"
+
+        resultados.append({
+            'id': c.id,
+            'documento': c.documento,
+            'tipo_documento': c.tipo_documento or 'NIE',
+            'nombre': c.nombre,
+            'apellido': c.apellido,
+            'telefono': c.telefono or '',
+            'coincidencia_secundaria': coincidencia_sec,
+            'documentos_adicionales': docs_secundarios
+        })
+    
+    return {'resultados': resultados}
 
 
 @transacciones.route('/api/analizar-recibo', methods=['POST'])

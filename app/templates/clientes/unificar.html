@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+
+{% block title %}Unificar Clientes - Sistema de Control de Transferencias{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h1><i class="fas fa-object-group text-warning me-2"></i>Unificar Clientes Duplicados</h1>
+        <p class="text-muted">
+            Consolida dos perfiles de la misma persona en uno solo. 
+            <strong>Ninguna transacción se pierde</strong>: todas se reasignan automáticamente al perfil principal y los documentos se vinculan.
+        </p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('clientes.lista') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Volver a Clientes
+        </a>
+    </div>
+</div>
+
+<!-- Banner de Explicación -->
+<div class="alert alert-info shadow-sm d-flex align-items-center mb-4">
+    <i class="fas fa-info-circle fa-2x me-3 text-info"></i>
+    <div>
+        <strong>¿Cómo funciona la unificación?</strong>
+        <ul class="mb-0 mt-1 small">
+            <li>Todas las <strong>transacciones</strong> del cliente duplicado pasan al cliente principal.</li>
+            <li>El <strong>documento</strong> del cliente duplicado se agrega como documento vinculado del cliente principal (si no estaba ya).</li>
+            <li>Los <strong>servicios</strong> y notificaciones se combinan sin duplicar.</li>
+            <li>El perfil duplicado vacío se elimina de forma segura para evitar confusiones al registrar nuevos envíos.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- SECCIÓN 1: Duplicados detectados automáticamente -->
+<div class="card shadow mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-magic text-primary me-2"></i>Posibles Duplicados Detectados en el Sistema</h5>
+        <span class="badge bg-primary">{{ grupos_duplicados|length }} grupo(s) encontrado(s)</span>
+    </div>
+    <div class="card-body">
+        {% if grupos_duplicados %}
+        <p class="text-muted small">
+            Se encontraron los siguientes clientes que comparten exactamente el mismo nombre y apellido o el mismo teléfono:
+        </p>
+        <div class="accordion" id="accordionDuplicados">
+            {% for grupo in grupos_duplicados %}
+            <div class="accordion-item mb-2 border">
+                <h2 class="accordion-header" id="heading{{ loop.index }}">
+                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        <strong>{{ grupo.criterio }}</strong> — {{ grupo.clientes|length }} perfiles encontrados
+                    </button>
+                </h2>
+                <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#accordionDuplicados">
+                    <div class="accordion-body bg-light">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered bg-white align-middle">
+                                <thead class="table-secondary">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre y Apellido</th>
+                                        <th>Documento</th>
+                                        <th>Teléfono</th>
+                                        <th>Transacciones</th>
+                                        <th>Última Visita</th>
+                                        <th class="text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for c in grupo.clientes %}
+                                    <tr>
+                                        <td>#{{ c.id }}</td>
+                                        <td><strong>{{ c.nombre_completo() }}</strong></td>
+                                        <td>
+                                            {{ c.documento }} <span class="badge bg-light text-dark border">{{ c.tipo_documento or 'NIE' }}</span>
+                                            {% set extras = c.documentos.count() %}
+                                            {% if extras > 0 %}
+                                            <span class="badge bg-info text-dark">+{{ extras }} doc(s)</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ c.telefono or '-' }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ c.transacciones.count() }} transacciones</span>
+                                        </td>
+                                        <td>{{ c.ultima_visita.strftime('%d/%m/%Y %H:%M') if c.ultima_visita else '-' }}</td>
+                                        <td class="text-center">
+                                            {% if loop.index == 1 and grupo.clientes|length >= 2 %}
+                                            <a href="{{ url_for('clientes.unificar', c1=grupo.clientes[0].id, c2=grupo.clientes[1].id) }}#asistente" class="btn btn-sm btn-outline-warning">
+                                                <i class="fas fa-arrow-down me-1"></i>Cargar en Asistente
+                                            </a>
+                                            {% elif loop.index > 1 %}
+                                            <a href="{{ url_for('clientes.unificar', c1=grupo.clientes[0].id, c2=c.id) }}#asistente" class="btn btn-sm btn-outline-warning">
+                                                <i class="fas fa-arrow-down me-1"></i>Unir con #{{ grupo.clientes[0].id }}
+                                            </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+            <i class="fas fa-check-circle fa-3x text-success mb-2"></i>
+            <p class="mb-0">¡Excelente! No se detectaron coincidencias automáticas de nombre o teléfono.</p>
+            <small>Si sabes de dos clientes con nombres ligeramente distintos o pasaporte nuevo, selecciónalos abajo en el asistente manual.</small>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- SECCIÓN 2: Asistente de Unificación Manual -->
+<div class="card shadow" id="asistente">
+    <div class="card-header bg-warning bg-opacity-25">
+        <h5 class="mb-0"><i class="fas fa-sliders-h me-2"></i>Asistente de Fusión de Clientes</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('clientes.unificar') }}" onsubmit="return confirmarFusion();">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="row g-4 align-items-center mb-4">
+                <!-- CLIENTE 1: PRINCIPAL -->
+                <div class="col-lg-5">
+                    <div class="card border-success h-100 shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <i class="fas fa-user-check me-2"></i><strong>1. Cliente Principal (SE CONSERVA)</strong>
+                        </div>
+                        <div class="card-body">
+                            <label for="cliente_maestro_id" class="form-label fw-bold">Elegir Cliente Principal:</label>
+                            <select class="form-select mb-3" id="cliente_maestro_id" name="cliente_maestro_id" required onchange="actualizarPrevisualizacion()">
+                                <option value="">-- Selecciona el cliente principal --</option>
+                                {% for cl in todos_clientes %}
+                                <option value="{{ cl.id }}" 
+                                    data-nombre="{{ cl.nombre_completo() }}"
+                                    data-doc="{{ cl.documento }} ({{ cl.tipo_documento or 'NIE' }})"
+                                    data-tel="{{ cl.telefono or 'Sin teléfono' }}"
+                                    data-tx="{{ cl.transacciones.count() }}"
+                                    {% if c1 and c1.id == cl.id %}selected{% endif %}>
+                                    #{{ cl.id }} — {{ cl.nombre_completo() }} ({{ cl.documento }})
+                                </option>
+                                {% endfor %}
+                            </select>
+
+                            <div id="preview_maestro" class="p-3 bg-light rounded border">
+                                <h6 class="text-success mb-2" id="m_nombre">Selecciona un cliente</h6>
+                                <div class="small"><strong>Documento:</strong> <span id="m_doc">-</span></div>
+                                <div class="small"><strong>Teléfono:</strong> <span id="m_tel">-</span></div>
+                                <div class="small"><strong>Transacciones actuales:</strong> <span id="m_tx" class="badge bg-secondary">0</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FLECHA / INDICADOR -->
+                <div class="col-lg-2 text-center my-3 my-lg-0">
+                    <div class="d-none d-lg-block">
+                        <i class="fas fa-arrow-left fa-3x text-warning"></i>
+                        <div class="small fw-bold text-muted mt-2">Absorbe datos y transacciones</div>
+                    </div>
+                    <div class="d-lg-none">
+                        <i class="fas fa-arrow-up fa-3x text-warning"></i>
+                        <div class="small fw-bold text-muted">Absorbe datos y transacciones</div>
+                    </div>
+                </div>
+
+                <!-- CLIENTE 2: DUPLICADO -->
+                <div class="col-lg-5">
+                    <div class="card border-danger h-100 shadow-sm">
+                        <div class="card-header bg-danger text-white">
+                            <i class="fas fa-user-times me-2"></i><strong>2. Cliente Duplicado (SE ABSORBE Y ELIMINA)</strong>
+                        </div>
+                        <div class="card-body">
+                            <label for="cliente_duplicado_id" class="form-label fw-bold">Elegir Cliente Duplicado:</label>
+                            <select class="form-select mb-3" id="cliente_duplicado_id" name="cliente_duplicado_id" required onchange="actualizarPrevisualizacion()">
+                                <option value="">-- Selecciona el perfil duplicado --</option>
+                                {% for cl in todos_clientes %}
+                                <option value="{{ cl.id }}" 
+                                    data-nombre="{{ cl.nombre_completo() }}"
+                                    data-doc="{{ cl.documento }} ({{ cl.tipo_documento or 'NIE' }})"
+                                    data-tel="{{ cl.telefono or 'Sin teléfono' }}"
+                                    data-tx="{{ cl.transacciones.count() }}"
+                                    {% if c2 and c2.id == cl.id %}selected{% endif %}>
+                                    #{{ cl.id }} — {{ cl.nombre_completo() }} ({{ cl.documento }})
+                                </option>
+                                {% endfor %}
+                            </select>
+
+                            <div id="preview_duplicado" class="p-3 bg-light rounded border">
+                                <h6 class="text-danger mb-2" id="d_nombre">Selecciona un cliente</h6>
+                                <div class="small"><strong>Documento que se vinculará:</strong> <span id="d_doc">-</span></div>
+                                <div class="small"><strong>Teléfono:</strong> <span id="d_tel">-</span></div>
+                                <div class="small"><strong>Transacciones a transferir:</strong> <span id="d_tx" class="badge bg-warning text-dark">0</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-warning border-warning">
+                <i class="fas fa-shield-alt me-2"></i>
+                <strong>Atención:</strong> Esta acción transferirá todas las transacciones históricas al cliente principal y el perfil duplicado dejará de existir. El documento del perfil duplicado quedará registrado en los documentos vinculados del cliente principal.
+            </div>
+
+            <div class="text-end">
+                <button type="submit" class="btn btn-warning btn-lg fw-bold shadow-sm">
+                    <i class="fas fa-object-group me-2"></i>Unificar Perfiles Ahora
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function actualizarPrevisualizacion() {
+    const selM = document.getElementById('cliente_maestro_id');
+    const optM = selM.options[selM.selectedIndex];
+    if (optM && optM.value) {
+        document.getElementById('m_nombre').textContent = optM.getAttribute('data-nombre');
+        document.getElementById('m_doc').textContent = optM.getAttribute('data-doc');
+        document.getElementById('m_tel').textContent = optM.getAttribute('data-tel');
+        document.getElementById('m_tx').textContent = optM.getAttribute('data-tx') + ' transacciones';
+    } else {
+        document.getElementById('m_nombre').textContent = 'Selecciona un cliente';
+        document.getElementById('m_doc').textContent = '-';
+        document.getElementById('m_tel').textContent = '-';
+        document.getElementById('m_tx').textContent = '0';
+    }
+
+    const selD = document.getElementById('cliente_duplicado_id');
+    const optD = selD.options[selD.selectedIndex];
+    if (optD && optD.value) {
+        document.getElementById('d_nombre').textContent = optD.getAttribute('data-nombre');
+        document.getElementById('d_doc').textContent = optD.getAttribute('data-doc');
+        document.getElementById('d_tel').textContent = optD.getAttribute('data-tel');
+        document.getElementById('d_tx').textContent = optD.getAttribute('data-tx') + ' se transferirán';
+    } else {
+        document.getElementById('d_nombre').textContent = 'Selecciona un cliente';
+        document.getElementById('d_doc').textContent = '-';
+        document.getElementById('d_tel').textContent = '-';
+        document.getElementById('d_tx').textContent = '0';
+    }
+}
+
+function confirmarFusion() {
+    const m = document.getElementById('cliente_maestro_id');
+    const d = document.getElementById('cliente_duplicado_id');
+    if (!m.value || !d.value) {
+        alert('Debes seleccionar ambos clientes.');
+        return false;
+    }
+    if (m.value === d.value) {
+        alert('No puedes seleccionar el mismo cliente en ambos campos.');
+        return false;
+    }
+    const nomM = m.options[m.selectedIndex].getAttribute('data-nombre');
+    const nomD = d.options[d.selectedIndex].getAttribute('data-nombre');
+    return confirm(`¿Estás seguro de unificar el cliente "${nomD}" dentro de "${nomM}"?\n\nTodas las transacciones pasarán a "${nomM}" y el perfil duplicado se eliminará.`);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarPrevisualizacion();
+});
+</script>
+{% endblock %}

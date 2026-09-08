@@ -166,3 +166,11 @@ def dashboard():
                           servicios_chart_values=servicios_chart_values,
                           clientes_nuevos=clientes_nuevos)
 
+
+@main.route('/api/buscar-cliente')
+@login_required
+def api_buscar_cliente_alias():
+    """Alias raíz para el endpoint de búsqueda de cliente."""
+    from app.routes.transacciones import api_buscar_cliente
+    return api_buscar_cliente()
+

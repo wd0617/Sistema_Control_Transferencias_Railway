@@ -31,7 +31,29 @@
                 </div>
                 <div class="row mb-3">
                     <div class="col-md-4 fw-bold">Documento:</div>
-                    <div class="col-md-8">{{ cliente.documento }}</div>
+                    <div class="col-md-8">
+                        <strong>{{ cliente.documento }}</strong> <span class="badge bg-primary ms-1">{{ cliente.tipo_documento or 'NIE' }} (Principal)</span>
+                        {% set docs_sec = cliente.documentos.all() %}
+                        {% if docs_sec %}
+                        <div class="mt-2 small">
+                            <span class="text-muted fw-bold">Otros documentos vinculados:</span>
+                            <ul class="list-unstyled mt-1 mb-0">
+                                {% for d in docs_sec %}
+                                <li>
+                                    <i class="fas fa-id-card text-secondary me-1"></i>
+                                    <strong>{{ d.numero_documento }}</strong> ({{ d.tipo_documento }})
+                                    {% if d.estado == 'vencido' %}<span class="badge bg-danger">Vencido</span>{% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        <div class="mt-2">
+                            <a href="{{ url_for('clientes.editar', cliente_id=cliente.id) }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-edit me-1"></i>Gestionar / Vincular Documentos
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 <div class="row mb-3">
                     <div class="col-md-4 fw-bold">Teléfono:</div>

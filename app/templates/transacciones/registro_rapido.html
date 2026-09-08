@@ -141,10 +141,14 @@ function buscarCliente(q) {
         if (!lista.length) { box.style.display = 'none'; return; }
 
         box.innerHTML = lista.map(c => `
-            <button type="button" class="list-group-item list-group-item-action"
+            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
                 onclick="seleccionarCliente(${c.id}, '${c.documento}', '${c.nombre}', '${c.apellido}', '${c.telefono || ''}')">
-                <strong>${c.nombre} ${c.apellido}</strong>
-                <span class="text-muted">— ${c.documento}</span>
+                <div>
+                    <strong>${c.nombre} ${c.apellido}</strong>
+                    <span class="text-muted ms-1">— Principal: ${c.documento} (${c.tipo_documento || 'NIE'})</span>
+                    ${c.coincidencia_secundaria ? `<div class="small text-primary"><i class="fas fa-link me-1"></i>Coincide doc vinculado: <strong>${c.coincidencia_secundaria}</strong></div>` : ''}
+                </div>
+                ${c.telefono ? `<span class="badge bg-light text-dark"><i class="fas fa-phone me-1"></i>${c.telefono}</span>` : ''}
             </button>
         `).join('');
         box.style.display = 'block';

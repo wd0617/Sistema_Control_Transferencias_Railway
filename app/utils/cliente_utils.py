@@ -51,6 +51,7 @@ def _crear_documento_cliente(cliente, numero, tipo, fecha_emision, fecha_vencimi
         return existente
 
     doc = DocumentoCliente(
+        negocio_id=cliente.negocio_id,
         cliente_id=cliente.id,
         tipo_documento=(tipo or 'OTRO').upper(),
         numero_documento=numero.strip().upper(),
@@ -178,6 +179,14 @@ def obtener_o_crear_cliente_con_documento(
             Cliente.documento.ilike(documento_norm)
         ).first()
 
+        # Si no se encontró como documento principal, buscar si existe como DocumentoCliente secundario
+        if not cliente:
+            doc_secundario = query_negocio(DocumentoCliente).filter(
+                DocumentoCliente.numero_documento.ilike(documento_norm)
+            ).first()
+            if doc_secundario and doc_secundario.cliente:
+                cliente = doc_secundario.cliente
+
     # 2. Si no, buscar por nombre+apellido exactos (normalizados)
     if not cliente:
         cliente = query_negocio(Cliente).filter(
@@ -208,3 +217,158 @@ def obtener_o_crear_cliente_con_documento(
     db.session.add(nuevo)
     db.session.flush()
     return nuevo, True
+
+
+def fusionar_clientes(cliente_maestro, cliente_duplicado, user_id=None):
+    """
+    Fusiona un cliente duplicado en un cliente maestro:
+    1. Reasigna todas las transacciones de cliente_duplicado a cliente_maestro.
+    2. Convierte el documento principal de cliente_duplicado en DocumentoCliente de cliente_maestro.
+    3. Reasigna todos los DocumentoCliente de cliente_duplicado a cliente_maestro sin colisiones.
+    4. Combina los servicios (M2M) de ambos clientes.
+    5. Reasigna o transfiere notificaciones vinculadas.
+    6. Registra auditoría en ActivityLog.
+    7. Elimina el registro de cliente_duplicado de forma segura.
+    """
+    from app.models.transaccion import Transaccion, Notificacion
+    from app.models.user import ActivityLog
+
+    if cliente_maestro.id == cliente_duplicado.id:
+        raise ValueError("No se puede fusionar un cliente consigo mismo.")
+
+    if cliente_maestro.negocio_id != cliente_duplicado.negocio_id:
+        raise ValueError("No se pueden fusionar clientes de distintos negocios.")
+
+    # 1. Reasignar todas las transacciones
+    Transaccion.query.filter_by(cliente_id=cliente_duplicado.id).update(
+        {'cliente_id': cliente_maestro.id},
+        synchronize_session=False
+    )
+
+    # 2. Reasignar todas las notificaciones
+    Notificacion.query.filter_by(cliente_id=cliente_duplicado.id).update(
+        {'cliente_id': cliente_maestro.id},
+        synchronize_session=False
+    )
+
+    # 3. Documento principal del duplicado -> pasarlo a DocumentoCliente del maestro si es distinto
+    doc_dup_num = cliente_duplicado.documento.strip().upper() if cliente_duplicado.documento else None
+    if doc_dup_num:
+        docs_maestro_existentes = {
+            cliente_maestro.documento.strip().upper()
+        }
+        for d in cliente_maestro.documentos:
+            docs_maestro_existentes.add(d.numero_documento.strip().upper())
+
+        if doc_dup_num not in docs_maestro_existentes:
+            _crear_documento_cliente(
+                cliente=cliente_maestro,
+                numero=doc_dup_num,
+                tipo=cliente_duplicado.tipo_documento,
+                fecha_emision=cliente_duplicado.documento_fecha_emision,
+                fecha_vencimiento=cliente_duplicado.documento_fecha_vencimiento
+            )
+
+    # 4. Reasignar los DocumentoCliente del duplicado
+    for doc in list(cliente_duplicado.documentos):
+        num_doc = doc.numero_documento.strip().upper()
+        # Verificar si cliente_maestro ya lo tiene como principal o secundario
+        if num_doc == cliente_maestro.documento.strip().upper():
+            db.session.delete(doc)
+            continue
+
+        doc_existente = DocumentoCliente.query.filter_by(
+            cliente_id=cliente_maestro.id,
+            numero_documento=num_doc
+        ).first()
+
+        if doc_existente:
+            # Si el documento entrante tiene mejor fecha o fotos, enriquecer el existente
+            if doc.fecha_vencimiento and (not doc_existente.fecha_vencimiento or doc.fecha_vencimiento > doc_existente.fecha_vencimiento):
+                doc_existente.fecha_vencimiento = doc.fecha_vencimiento
+                doc_existente.fecha_emision = doc.fecha_emision or doc_existente.fecha_emision
+            if doc.foto_anverso and not doc_existente.foto_anverso:
+                doc_existente.foto_anverso = doc.foto_anverso
+            if doc.foto_reverso and not doc_existente.foto_reverso:
+                doc_existente.foto_reverso = doc.foto_reverso
+            db.session.delete(doc)
+        else:
+            doc.cliente_id = cliente_maestro.id
+            doc.es_documento_principal = False
+
+    # 5. Combinar servicios M2M
+    for serv in cliente_duplicado.servicios:
+        if serv not in cliente_maestro.servicios:
+            cliente_maestro.servicios.append(serv)
+
+    # 6. Actualizar fecha última visita
+    if cliente_duplicado.ultima_visita and (not cliente_maestro.ultima_visita or cliente_duplicado.ultima_visita > cliente_maestro.ultima_visita):
+        cliente_maestro.ultima_visita = cliente_duplicado.ultima_visita
+
+    # 7. Completar teléfono si el maestro no tenía
+    if not cliente_maestro.telefono and cliente_duplicado.telefono:
+        cliente_maestro.telefono = cliente_duplicado.telefono
+
+    # 8. Auditoría
+    if user_id:
+        log = ActivityLog(
+            user_id=user_id,
+            activity=f"Fusionó cliente duplicado ID {cliente_duplicado.id} ({cliente_duplicado.nombre_completo()}, doc {cliente_duplicado.documento}) en cliente ID {cliente_maestro.id} ({cliente_maestro.nombre_completo()})"
+        )
+        db.session.add(log)
+
+    # 9. Eliminar cliente duplicado
+    db.session.delete(cliente_duplicado)
+    db.session.commit()
+    return True
+
+
+def detectar_posibles_duplicados():
+    """
+    Busca dentro del negocio actual posibles clientes duplicados
+    basándose en coincidencia de (nombre + apellido) o teléfono idéntico.
+    Retorna una lista de grupos de duplicados detectados.
+    """
+    todos = query_negocio(Cliente).order_by(Cliente.id).all()
+    
+    por_nombre = {}
+    por_telefono = {}
+
+    for c in todos:
+        # Clave nombre + apellido normalizados
+        key_nombre = (_normalizar(c.nombre), _normalizar(c.apellido))
+        if key_nombre[0] and key_nombre[1]:
+            por_nombre.setdefault(key_nombre, []).append(c)
+
+        # Clave teléfono (solo dígitos, mínimo 7 dígitos)
+        if c.telefono:
+            tel_digitos = ''.join(ch for ch in c.telefono if ch.isdigit())
+            if len(tel_digitos) >= 7:
+                por_telefono.setdefault(tel_digitos, []).append(c)
+
+    grupos = []
+    ids_procesados = set()
+
+    # Grupos por nombre y apellido
+    for (nom, ape), clientes in por_nombre.items():
+        if len(clientes) > 1:
+            grupo_ids = tuple(sorted(c.id for c in clientes))
+            if grupo_ids not in ids_procesados:
+                ids_procesados.add(grupo_ids)
+                grupos.append({
+                    'criterio': f"Mismo nombre y apellido ({clientes[0].nombre_completo()})",
+                    'clientes': clientes
+                })
+
+    # Grupos por teléfono
+    for tel, clientes in por_telefono.items():
+        if len(clientes) > 1:
+            grupo_ids = tuple(sorted(c.id for c in clientes))
+            if grupo_ids not in ids_procesados:
+                ids_procesados.add(grupo_ids)
+                grupos.append({
+                    'criterio': f"Mismo teléfono ({clientes[0].telefono})",
+                    'clientes': clientes
+                })
+
+    return grupos

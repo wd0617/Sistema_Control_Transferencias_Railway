@@ -8,6 +8,9 @@
         <h1><i class="fas fa-users me-2"></i>Gestión de Clientes</h1>
     </div>
     <div class="col-md-6 text-end">
+        <a href="{{ url_for('clientes.unificar') }}" class="btn btn-warning me-2">
+            <i class="fas fa-object-group me-2"></i>Unificar Clientes
+        </a>
         <a href="{{ url_for('clientes.nuevo') }}" class="btn btn-primary">
             <i class="fas fa-user-plus me-2"></i>Nuevo Cliente
         </a>
@@ -37,7 +40,16 @@
                     {% for cliente in clientes %}
                     <tr>
                         <td>{{ cliente.nombre_completo() }}</td>
-                        <td>{{ cliente.documento }}</td>
+                        <td>
+                            <strong>{{ cliente.documento }}</strong>
+                            <small class="text-muted d-block">{{ cliente.tipo_documento or 'NIE' }}</small>
+                            {% set cant_docs = cliente.documentos.count() %}
+                            {% if cant_docs > 0 %}
+                            <a href="{{ url_for('clientes.editar', cliente_id=cliente.id) }}" class="badge bg-info text-dark text-decoration-none" title="Tiene {{ cant_docs }} documento(s) adicional(es) vinculado(s)">
+                                <i class="fas fa-link me-1"></i>+{{ cant_docs }} doc{{ 's' if cant_docs > 1 else '' }}
+                            </a>
+                            {% endif %}
+                        </td>
                         <td>{{ cliente.telefono }}</td>
                         <td>
                             {% for servicio in cliente.servicios %}

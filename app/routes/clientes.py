@@ -29,7 +29,12 @@ def search():
     
     try:
         if query:
-            # Búsqueda por nombre, apellido, documento o teléfono
+            # Búsqueda por nombre, apellido, documento (principal y secundarios) o teléfono
+            from app.models.documento import DocumentoCliente
+            doc_cliente_ids = query_negocio(DocumentoCliente).filter(
+                DocumentoCliente.numero_documento.ilike(f'%{query}%')
+            ).with_entities(DocumentoCliente.cliente_id).subquery()
+
             # Precargar servicios para evitar N+1 queries
             clientes_list = query_negocio(Cliente).options(
                 joinedload(Cliente.servicios)
@@ -37,6 +42,7 @@ def search():
                 (Cliente.nombre.ilike(f'%{query}%')) | 
                 (Cliente.apellido.ilike(f'%{query}%')) | 
                 (Cliente.documento.ilike(f'%{query}%')) |
+                (Cliente.id.in_(doc_cliente_ids)) |
                 (Cliente.telefono.ilike(f'%{query}%'))
             ).all()
             
@@ -225,3 +231,166 @@ def editar(cliente_id):
     # GET: Mostrar formulario con datos del cliente
     servicios = query_negocio(Servicio).all()
     return render_template('clientes/editar.html', cliente=cliente, servicios=servicios, now=datetime.now())
+
+
+@clientes.route('/<int:cliente_id>/documentos/agregar', methods=['POST'])
+@login_required
+def agregar_documento(cliente_id):
+    """Vincula un nuevo documento de identidad al cliente."""
+    cliente = get_negocio_o_404(Cliente, cliente_id)
+    tipo = request.form.get('tipo_documento', 'OTRO').strip().upper()
+    numero = request.form.get('numero_documento', '').strip().upper()
+    fecha_emision_str = request.form.get('fecha_emision')
+    fecha_vencimiento_str = request.form.get('fecha_vencimiento')
+    
+    if not numero:
+        flash('El número de documento es obligatorio.', 'danger')
+        return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+        
+    # Validar si ya es el documento principal de este cliente
+    if cliente.documento and cliente.documento.strip().upper() == numero:
+        flash('Este número ya es el documento principal del cliente.', 'warning')
+        return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+        
+    # Validar si ya existe en DocumentoCliente para este cliente
+    from app.models.documento import DocumentoCliente
+    doc_existente = query_negocio(DocumentoCliente).filter_by(
+        cliente_id=cliente.id,
+        numero_documento=numero
+    ).first()
+    if doc_existente:
+        flash('Este documento ya está registrado para este cliente.', 'warning')
+        return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+        
+    # Convertir fechas
+    fecha_emision = None
+    if fecha_emision_str:
+        try:
+            fecha_emision = datetime.strptime(fecha_emision_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+            
+    fecha_vencimiento = None
+    if fecha_vencimiento_str:
+        try:
+            fecha_vencimiento = datetime.strptime(fecha_vencimiento_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    if not fecha_vencimiento:
+        from datetime import date
+        fecha_vencimiento = date(2099, 12, 31)
+        
+    from app.utils.cliente_utils import _crear_documento_cliente
+    _crear_documento_cliente(cliente, numero, tipo, fecha_emision, fecha_vencimiento)
+    db.session.commit()
+    flash(f'Documento {tipo} ({numero}) vinculado correctamente.', 'success')
+    return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+
+
+@clientes.route('/<int:cliente_id>/documentos/<int:doc_id>/hacer-principal', methods=['POST'])
+@login_required
+def hacer_documento_principal(cliente_id, doc_id):
+    """Convierte un documento secundario en el documento principal del cliente."""
+    cliente = get_negocio_o_404(Cliente, cliente_id)
+    from app.models.documento import DocumentoCliente
+    doc = get_negocio_o_404(DocumentoCliente, doc_id)
+    
+    if doc.cliente_id != cliente.id:
+        flash('El documento no pertenece a este cliente.', 'danger')
+        return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+        
+    # Guardar documento principal actual en DocumentoCliente (si no está)
+    from app.utils.cliente_utils import _crear_documento_cliente
+    if cliente.documento:
+        _crear_documento_cliente(
+            cliente=cliente,
+            numero=cliente.documento,
+            tipo=cliente.tipo_documento,
+            fecha_emision=cliente.documento_fecha_emision,
+            fecha_vencimiento=cliente.documento_fecha_vencimiento
+        )
+        
+    # Promover este documento a principal
+    cliente.documento = doc.numero_documento
+    cliente.tipo_documento = doc.tipo_documento
+    cliente.documento_fecha_emision = doc.fecha_emision
+    cliente.documento_fecha_vencimiento = doc.fecha_vencimiento
+    
+    # Eliminar el registro de DocumentoCliente ya que ahora es el principal
+    db.session.delete(doc)
+    db.session.commit()
+    
+    flash(f'El documento {cliente.tipo_documento} ({cliente.documento}) es ahora el principal.', 'success')
+    return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+
+
+@clientes.route('/<int:cliente_id>/documentos/<int:doc_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_documento_secundario(cliente_id, doc_id):
+    """Elimina un documento secundario de un cliente."""
+    cliente = get_negocio_o_404(Cliente, cliente_id)
+    from app.models.documento import DocumentoCliente
+    doc = get_negocio_o_404(DocumentoCliente, doc_id)
+    
+    if doc.cliente_id != cliente.id:
+        flash('El documento no pertenece a este cliente.', 'danger')
+        return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+        
+    numero = doc.numero_documento
+    db.session.delete(doc)
+    db.session.commit()
+    
+    flash(f'Documento {numero} desvinculado correctamente.', 'info')
+    return redirect(url_for('clientes.editar', cliente_id=cliente.id))
+
+
+@clientes.route('/unificar', methods=['GET', 'POST'])
+@login_required
+def unificar():
+    """Herramienta para detectar y fusionar clientes duplicados en un único perfil."""
+    from app.utils.cliente_utils import detectar_posibles_duplicados, fusionar_clientes
+    
+    if request.method == 'POST':
+        maestro_id = request.form.get('cliente_maestro_id', type=int)
+        duplicado_id = request.form.get('cliente_duplicado_id', type=int)
+        
+        if not maestro_id or not duplicado_id:
+            flash('Debes seleccionar tanto el cliente principal como el duplicado.', 'danger')
+            return redirect(url_for('clientes.unificar'))
+            
+        if maestro_id == duplicado_id:
+            flash('No puedes seleccionar el mismo cliente como principal y duplicado.', 'warning')
+            return redirect(url_for('clientes.unificar'))
+            
+        cliente_maestro = get_negocio_o_404(Cliente, maestro_id)
+        cliente_duplicado = get_negocio_o_404(Cliente, duplicado_id)
+        
+        try:
+            fusionar_clientes(cliente_maestro, cliente_duplicado, user_id=current_user.id)
+            flash(f'¡Perfiles unificados con éxito! Todas las transacciones y documentos fueron consolidados en {cliente_maestro.nombre_completo()}.', 'success')
+            return redirect(url_for('clientes.editar', cliente_id=cliente_maestro.id))
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f'Error al fusionar clientes: {e}', exc_info=True)
+            flash(f'Ocurrió un error al unificar clientes: {str(e)}', 'danger')
+            return redirect(url_for('clientes.unificar'))
+            
+    # GET: Mostrar posibles duplicados y selector
+    grupos_duplicados = detectar_posibles_duplicados()
+    
+    # Obtener lista completa de clientes para los selectores
+    todos_clientes = query_negocio(Cliente).order_by(Cliente.nombre, Cliente.apellido).all()
+
+    # Si vienen IDs por query params (ej. para preseleccionar desde lista)
+    c1_id = request.args.get('c1', type=int)
+    c2_id = request.args.get('c2', type=int)
+    c1 = get_negocio_o_404(Cliente, c1_id) if c1_id else None
+    c2 = get_negocio_o_404(Cliente, c2_id) if c2_id else None
+    
+    return render_template('clientes/unificar.html',
+                           grupos_duplicados=grupos_duplicados,
+                           todos_clientes=todos_clientes,
+                           c1=c1,
+                           c2=c2,
+                           now=datetime.now())
+

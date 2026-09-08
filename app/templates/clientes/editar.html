@@ -9,6 +9,9 @@
         <p class="text-muted">{{ cliente.nombre_completo() }}</p>
     </div>
     <div class="col-md-6 text-end">
+        <a href="{{ url_for('clientes.unificar', c1=cliente.id) }}" class="btn btn-outline-warning me-2" title="Unificar este perfil con un duplicado">
+            <i class="fas fa-object-group me-1"></i>Unificar con otro cliente
+        </a>
         <a href="{{ url_for('clientes.lista') }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-2"></i>Volver a Clientes
         </a>
@@ -139,6 +142,155 @@
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Tarjeta de Documentos Vinculados -->
+<div class="card shadow mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-id-card-alt me-2"></i>Documentos Vinculados a este Cliente</h5>
+        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoDoc">
+            <i class="fas fa-plus me-1"></i>Vincular Otro Documento
+        </button>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small">
+            Todos los documentos listados aquí están asociados al mismo perfil. Si buscas al cliente por cualquiera de estos documentos en el buscador o en el Registro Rápido, el sistema lo encontrará automáticamente.
+        </p>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Rol</th>
+                        <th>Tipo</th>
+                        <th>Número</th>
+                        <th>Emisión</th>
+                        <th>Vencimiento</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Documento Principal Actual -->
+                    <tr class="table-primary">
+                        <td>
+                            <span class="badge bg-primary"><i class="fas fa-star me-1"></i>Principal</span>
+                        </td>
+                        <td><strong>{{ cliente.tipo_documento or 'NIE' }}</strong></td>
+                        <td><strong class="fs-6">{{ cliente.documento }}</strong></td>
+                        <td>{{ cliente.documento_fecha_emision.strftime('%d/%m/%Y') if cliente.documento_fecha_emision else '-' }}</td>
+                        <td>{{ cliente.documento_fecha_vencimiento.strftime('%d/%m/%Y') if cliente.documento_fecha_vencimiento else '-' }}</td>
+                        <td>
+                            {% if cliente.estado_documento == 'vencido' %}
+                                <span class="badge bg-danger">Vencido</span>
+                            {% elif cliente.estado_documento == 'por_vencer' %}
+                                <span class="badge bg-warning text-dark">Por Vencer</span>
+                            {% elif cliente.estado_documento == 'vigente' %}
+                                <span class="badge bg-success">Vigente</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Sin fecha</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end text-muted small">
+                            <em>(En uso como principal)</em>
+                        </td>
+                    </tr>
+
+                    <!-- Documentos Secundarios -->
+                    {% set docs_secundarios = cliente.documentos.all() %}
+                    {% for doc in docs_secundarios %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-secondary">Secundario</span>
+                        </td>
+                        <td>{{ doc.tipo_documento }}</td>
+                        <td><strong>{{ doc.numero_documento }}</strong></td>
+                        <td>{{ doc.fecha_emision.strftime('%d/%m/%Y') if doc.fecha_emision else '-' }}</td>
+                        <td>{{ doc.fecha_vencimiento.strftime('%d/%m/%Y') if doc.fecha_vencimiento else '-' }}</td>
+                        <td>
+                            {% if doc.estado == 'vencido' %}
+                                <span class="badge bg-danger">Vencido</span>
+                            {% elif doc.estado == 'por_vencer' %}
+                                <span class="badge bg-warning text-dark">Por Vencer</span>
+                            {% elif doc.estado == 'vigente' %}
+                                <span class="badge bg-success">Vigente</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ doc.estado }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <form method="POST" action="{{ url_for('clientes.hacer_documento_principal', cliente_id=cliente.id, doc_id=doc.id) }}" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Establecer como documento principal">
+                                    <i class="fas fa-star me-1"></i>Hacer Principal
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('clientes.eliminar_documento_secundario', cliente_id=cliente.id, doc_id=doc.id) }}" class="d-inline" onsubmit="return confirm('¿Desvincular este documento del cliente?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar documento secundario">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not docs_secundarios %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-3">
+                            No hay documentos adicionales vinculados. Utiliza el botón <strong>"Vincular Otro Documento"</strong> para registrar pasaportes o NIEs adicionales de este cliente.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Vincular Documento -->
+<div class="modal fade" id="modalNuevoDoc" tabindex="-1" aria-labelledby="modalNuevoDocLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('clientes.agregar_documento', cliente_id=cliente.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalNuevoDocLabel"><i class="fas fa-id-card me-2"></i>Vincular Otro Documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="modal_tipo_documento" class="form-label">Tipo de Documento *</label>
+                        <select class="form-select" id="modal_tipo_documento" name="tipo_documento" required>
+                            <option value="PASAPORTE">Pasaporte</option>
+                            <option value="NIE">NIE</option>
+                            <option value="DNI">DNI</option>
+                            <option value="PERMISO_RESIDENCIA">Permiso de Residencia</option>
+                            <option value="TARJETA_COMUNITARIA">Tarjeta Comunitaria</option>
+                            <option value="OTRO">Otro documento</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modal_numero_documento" class="form-label">Número de Documento *</label>
+                        <input type="text" class="form-control" id="modal_numero_documento" name="numero_documento" placeholder="Ej: P12345678" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="modal_fecha_emision" class="form-label">Fecha de Emisión</label>
+                            <input type="date" class="form-control" id="modal_fecha_emision" name="fecha_emision">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="modal_fecha_vencimiento" class="form-label">Fecha de Vencimiento</label>
+                            <input type="date" class="form-control" id="modal_fecha_vencimiento" name="fecha_vencimiento">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i>Vincular Documento</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}
