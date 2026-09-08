@@ -7,16 +7,26 @@
     <div class="col-lg-7">
         <h2 class="mb-3"><i class="fas fa-bolt me-2 text-warning"></i>Registro Rápido</h2>
 
-        <!-- Paso opcional: pegar recibo -->
-        <div class="card shadow-sm mb-4">
+        <!-- Paso opcional: pegar recibo inteligente -->
+        <div class="card shadow-sm mb-4 border-primary">
             <div class="card-body">
-                <label class="form-label fw-bold text-muted small">Pegar texto del recibo <span class="fw-normal">(opcional)</span></label>
-                <div class="input-group">
-                    <textarea id="texto_recibo" class="form-control font-monospace" rows="2"
-                        placeholder="Copiá el recibo y pegalo acá para autocompletar..."></textarea>
-                    <button class="btn btn-outline-primary" type="button" onclick="analizarRecibo()">
-                        <i class="fas fa-magic"></i>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label fw-bold text-primary mb-0">
+                        <i class="fas fa-magic me-1"></i>Pegar texto de recibo o WhatsApp
+                    </label>
+                    <span class="badge bg-light text-dark border">Copia el recibo y presiona Ctrl + V</span>
+                </div>
+                <textarea id="texto_recibo" class="form-control font-monospace mb-2" rows="3"
+                    placeholder="Pega aquí el texto copiado de Mondial Bony, Western Union, Ria o un mensaje de WhatsApp..."
+                    onpaste="setTimeout(analizarRecibo, 100)"></textarea>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <button class="btn btn-primary btn-sm px-3 fw-bold" type="button" id="btnAnalizarRecibo" onclick="analizarRecibo()">
+                        <i class="fas fa-bolt me-1"></i>Analizar y Autocompletar
                     </button>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" onclick="document.getElementById('texto_recibo').value = ''; document.getElementById('analisis_status').innerHTML = '';">
+                        <i class="fas fa-eraser me-1"></i>Limpiar
+                    </button>
+                    <div id="analisis_status" class="small ms-auto"></div>
                 </div>
             </div>
         </div>
@@ -115,44 +125,119 @@
 
 {% block extra_js %}
 <script>
-// Analizar recibo pegado (opcional)
+// Analizar recibo pegado (inteligente)
 function analizarRecibo() {
-    const texto = document.getElementById('texto_recibo').value;
-    if (!texto.trim()) return;
+    const textarea = document.getElementById('texto_recibo');
+    const texto = textarea.value.trim();
+    const statusDiv = document.getElementById('analisis_status');
+    const btn = document.getElementById('btnAnalizarRecibo');
+
+    if (!texto) {
+        if (statusDiv) statusDiv.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Pega texto de recibo primero</span>';
+        return;
+    }
+
+    if (statusDiv) statusDiv.innerHTML = '<span class="text-primary"><i class="fas fa-spinner fa-spin me-1"></i>Analizando texto...</span>';
+    if (btn) btn.disabled = true;
+
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    const headers = { 'Content-Type': 'application/json' };
+    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
 
     fetch('/transacciones/api/analizar-recibo', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-        },
-        body: JSON.stringify({texto: texto})
+        headers: headers,
+        body: JSON.stringify({ texto: texto })
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) throw new Error('Error al analizar recibo (' + r.status + ')');
+        return r.json();
+    })
     .then(data => {
-        if (data.nombre) document.getElementById('nombre').value = data.nombre;
+        if (btn) btn.disabled = false;
+        const camposDetectados = [];
+
+        if (data.nombre) {
+            document.getElementById('nombre').value = data.nombre;
+            camposDetectados.push('👤 ' + data.nombre + (data.apellido ? ' ' + data.apellido : ''));
+        }
         if (data.apellido) document.getElementById('apellido').value = data.apellido;
+
         if (data.documento) {
             document.getElementById('documento').value = data.documento;
+            camposDetectados.push('🪪 ' + data.documento);
             buscarClientePorDocumento(data.documento);
         } else if (data.nombre && data.apellido) {
             buscarClientePorNombre(data.nombre + ' ' + data.apellido);
         }
-        if (data.telefono) document.getElementById('telefono').value = data.telefono;
-        if (data.referencia && document.getElementById('referencia')) document.getElementById('referencia').value = data.referencia;
-        if (data.monto) document.getElementById('monto').value = data.monto.toFixed(2).replace('.', ',');
-        // Seleccionar servicio si coincide
+
+        if (data.telefono) {
+            document.getElementById('telefono').value = data.telefono;
+            camposDetectados.push('📞 ' + data.telefono);
+        }
+
+        if (data.referencia && document.getElementById('referencia')) {
+            document.getElementById('referencia').value = data.referencia;
+            camposDetectados.push('🔖 Ref: ' + data.referencia);
+        }
+
+        if (data.monto) {
+            document.getElementById('monto').value = data.monto.toFixed(2).replace('.', ',');
+            camposDetectados.push('💶 ' + data.monto.toFixed(2) + ' €');
+        }
+
+        // Selección inteligente del servicio (tolera Mondial vs Mondial Bony, Ria, WU, etc.)
         if (data.servicio_hint) {
-            const opts = document.getElementById('servicio_id').options;
+            const srvRaw = data.servicio_hint.toUpperCase().trim();
+            const srvClean = srvRaw.replace(/\b(MONEY|TRANSFER|GLOBAL|SERVICE|BONY)\b/g, '').replace(/[^A-Z0-9]/g, '').trim();
+            const selectServicio = document.getElementById('servicio_id');
+            const opts = selectServicio.options;
+
             for (let i = 0; i < opts.length; i++) {
-                if (opts[i].text.toUpperCase().includes(data.servicio_hint.toUpperCase())) {
-                    document.getElementById('servicio_id').selectedIndex = i;
+                const optFull = opts[i].text.toUpperCase();
+                const optBase = optFull.split('(')[0].trim();
+                const optClean = optBase.replace(/\b(MONEY|TRANSFER|GLOBAL|SERVICE|BONY)\b/g, '').replace(/[^A-Z0-9]/g, '').trim();
+
+                if (optFull.includes(srvRaw) || srvRaw.includes(optBase) || optBase.includes(srvRaw) ||
+                    (srvClean && optClean && (optClean.includes(srvClean) || srvClean.includes(optClean)))) {
+                    selectServicio.selectedIndex = i;
+                    camposDetectados.push('🏢 ' + optBase);
                     break;
                 }
             }
         }
+
+        if (statusDiv) {
+            if (camposDetectados.length > 0) {
+                statusDiv.innerHTML = '<span class="badge bg-success me-1"><i class="fas fa-check me-1"></i>Detectado:</span> ' +
+                    camposDetectados.map(c => `<span class="badge bg-light text-dark border me-1">${c}</span>`).join(' ');
+            } else {
+                statusDiv.innerHTML = '<span class="text-warning"><i class="fas fa-info-circle me-1"></i>No se reconocieron campos estándar. Verifique el formato.</span>';
+            }
+        }
+    })
+    .catch(err => {
+        if (btn) btn.disabled = false;
+        if (statusDiv) statusDiv.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>' + err.message + '</span>';
     });
 }
+
+// Captura automática de Ctrl+V en la página si no se está escribiendo en otro input
+document.addEventListener('paste', function(e) {
+    const target = e.target;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return; // El usuario está pegando en un input específico
+    }
+    const textoPegado = (e.clipboardData || window.clipboardData).getData('text');
+    if (textoPegado && textoPegado.trim().length > 20) {
+        const textarea = document.getElementById('texto_recibo');
+        if (textarea) {
+            textarea.value = textoPegado;
+            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            analizarRecibo();
+        }
+    }
+});
 
 // Autocompletado de cliente por documento
 let timeoutBuscar = null;

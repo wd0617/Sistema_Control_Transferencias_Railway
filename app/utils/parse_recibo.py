@@ -93,13 +93,13 @@ def _extraer_nombre(lineas):
     if nome and cognome:
         return nome, cognome
 
-    # 2. Estrategia: Palabras clave de remitente / cliente
     keywords_remitente = [
         'NOME E COGNOME DEL CLIENTE', 'NOME E COGNOME DEL MITTENTE',
         'NOME E COGNOME', 'NOME COMPLETO', 'DATI DEL MITTENTE',
         'DATI MITTENTE', 'INFORMAZIONI MITTENTE', 'DATI CLIENTE',
         'CLIENTE', 'MITTENTE', 'SENDER NAME', 'SENDER',
-        'ORDINANTE', 'REMITENTE', 'NOMINATIVO'
+        'ORDINANTE', 'REMITENTE', 'NOMINATIVO', 'DATI SPEDITORE',
+        'SPEDITORE', 'NOME ORDINANTE', 'DATI DEL RICHIEDENTE', 'RICHIEDENTE'
     ]
 
     for i, linea in enumerate(lineas):
@@ -192,11 +192,12 @@ def _extraer_documento(lineas):
     """Extrae número de documento del remitente (DNI, NIE, Pasaporte, Carta Identità, CF)."""
     keywords = [
         'NUMERO DEL DOCUMENTO', 'NUMERO DOCUMENTO', 'NUMERO DOC.', 'NUMERO DOC',
-        'N. DOCUMENTO', 'N.DOCUMENTO', 'DOC. IDENTITÀ', 'DOC. IDENTITA',
-        'DOCUMENTO D\'IDENTITÀ', 'DOCUMENTO D\'IDENTITA', 'TIPO DOCUMENTO',
-        'DOCUMENTO', 'DOCUMENT', 'CODICE FISCALE', 'C.F.',
+        'N. DOCUMENTO', 'N.DOCUMENTO', 'N° DOCUMENTO', 'NR. DOCUMENTO', 'DOC. N.',
+        'DOC. IDENTITÀ', 'DOC. IDENTITA', 'DOCUMENTO D\'IDENTITÀ', 'DOCUMENTO D\'IDENTITA',
+        'TIPO DOCUMENTO', 'DOCUMENTO', 'DOCUMENT', 'CODICE FISCALE', 'C.F.',
         'NUMERO ID', 'ID NUM', 'ID NUMBER', 'PASAPORTE', 'PASSAPORTO',
-        'PASSPORT', 'CARTA IDENTITA', 'CARTA D\'IDENTITÀ', 'NIE', 'DNI'
+        'PASSPORT NO', 'PASSPORT NUMBER', 'PASSPORT', 'CARTA IDENTITA', 'CARTA D\'IDENTITÀ',
+        'NIE', 'DNI', 'DOC:'
     ]
 
     for i, linea in enumerate(lineas):
