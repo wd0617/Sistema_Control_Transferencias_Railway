@@ -47,6 +47,11 @@ def parsear_recibo(texto):
     # --- SERVICIO ---
     resultado['servicio_hint'] = _detectar_servicio(texto)
 
+    # --- REFERENCIA / MTCN ---
+    ref = _extraer_referencia(lineas, texto)
+    if ref:
+        resultado['referencia'] = ref
+
     return resultado
 
 
@@ -301,4 +306,34 @@ def _detectar_servicio(texto):
         return 'Mondial Bony'
     if 'MONTY' in tu or 'MONTY GLOBAL' in tu:
         return 'Monty'
+    return None
+
+
+def _extraer_referencia(lineas, texto):
+    """Extrae código de referencia, MTCN o PIN del recibo."""
+    # 1. MTCN específico (WU - 10 dígitos con o sin guiones/espacios)
+    m = re.search(r'\bMTCN\s*[:#-]?\s*([0-9]{3,4}[-\s]?[0-9]{3,4}[-\s]?[0-9]{3,4})\b', texto, re.I)
+    if m:
+        return re.sub(r'[-\s]', '', m.group(1))
+
+    # 2. Palabras clave comunes
+    keywords = [
+        'CODICE DI RIFERIMENTO', 'CODICE RIFERIMENTO', 'RIFERIMENTO',
+        'NUMERO DI RIFERIMENTO', 'PIN', 'TRANSACTION ID', 'NUMERO TRANSAZIONE',
+        'N. TRANSAZIONE', 'CODICE SPEDIZIONE', 'CODICE ORDINE', 'REFERENCE NUMBER'
+    ]
+    for linea in lineas:
+        lu = linea.upper()
+        for kw in keywords:
+            if kw in lu:
+                val = linea.split(':', 1)[-1].strip() if ':' in linea else re.sub(re.escape(kw), '', linea, flags=re.I).strip()
+                val_limpio = re.sub(r'[^\w-]', '', val)
+                if val_limpio and len(val_limpio) >= 6:
+                    return val_limpio
+
+    # 3. Fallback: buscar secuencias tipo MTCN o PIN sueltas
+    m2 = re.search(r'\b(?:MTCN|PIN|REF)\b\s*[:]?\s*([A-Z0-9-]{6,16})\b', texto, re.I)
+    if m2:
+        return m2.group(1)
+
     return None

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Registro Rápido - Transferencias",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Envía recibos de WU, MG, Ria, Mondial y Monty directo al sistema de control.",
   "permissions": [
     "activeTab",
@@ -12,6 +12,9 @@
     "https://*/*",
     "http://*/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://*/*", "http://*/*"],
@@ -20,9 +23,21 @@
       "all_frames": true
     }
   ],
+  "commands": {
+    "capturar_recibo": {
+      "suggested_key": {
+        "default": "Alt+R",
+        "mac": "Alt+R"
+      },
+      "description": "Capturar recibo de la página actual y registrar transferencia"
+    }
+  },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Enviar recibo al sistema"
+    "default_title": "Registro Rápido de Transferencias",
+    "default_icon": {
+      "48": "icon.png"
+    }
   },
   "icons": {
     "48": "icon.png"

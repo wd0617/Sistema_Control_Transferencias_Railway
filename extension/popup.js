@@ -21,6 +21,20 @@ function normalizarBaseUrl(url) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Pestañas
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabPanes = document.querySelectorAll('.tab-pane');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      tabPanes.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const target = document.getElementById(btn.dataset.tab);
+      if (target) target.classList.add('active');
+    });
+  });
+
+  // Elementos Tab Recibo
   const btnAuto = document.getElementById('btnEnviar');
   const btnManual = document.getElementById('btnEnviarManual');
   const btnToggle = document.getElementById('btnToggleManual');
@@ -28,6 +42,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const manualText = document.getElementById('manualText');
   const status = document.getElementById('status');
   const siteLabel = document.getElementById('site');
+
+  // Elementos Tab Cliente
+  const inputBuscar = document.getElementById('inputBuscarCliente');
+  const listaClientes = document.getElementById('listaClientes');
+  const statusCliente = document.getElementById('statusCliente');
+
+  // Elementos Config
   const btnToggleConfig = document.getElementById('btnToggleConfig');
   const configBox = document.getElementById('configBox');
   const configUrl = document.getElementById('configUrl');
@@ -63,7 +84,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     configMsg.textContent = 'Verificando...';
     configMsg.className = 'config-msg';
 
-    // Verificar que el sistema responda (no bloquea el guardado si falla)
     let alcanzable = false;
     try {
       const resp = await withTimeout(fetch(url, { method: 'GET', redirect: 'follow' }), 8000, 'Timeout');
@@ -107,12 +127,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Envío automático (desde la pestaña activa)
+  // Envío automático
   btnAuto.addEventListener('click', async () => {
     await enviarRecibo({ modo: 'auto', btn: btnAuto, status });
   });
 
-  // Envío manual (desde textarea)
+  // Envío manual
   btnManual.addEventListener('click', async () => {
     const texto = manualText.value.trim();
     if (!texto) {
@@ -122,7 +142,99 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     await enviarRecibo({ modo: 'manual', texto, btn: btnManual, status });
   });
+
+  // Búsqueda de cliente con debounce
+  let searchTimer = null;
+  inputBuscar.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    const q = inputBuscar.value.trim();
+    if (q.length < 2) {
+      listaClientes.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px 0;">Escribe al menos 2 caracteres...</div>';
+      statusCliente.textContent = '';
+      return;
+    }
+    statusCliente.textContent = 'Buscando...';
+    searchTimer = setTimeout(() => buscarClientes(q, listaClientes, statusCliente), 350);
+  });
 });
+
+// Buscar y renderizar clientes
+async function buscarClientes(query, container, statusLabel) {
+  try {
+    const resp = await fetch(`${BASE_URL}/transacciones/api/verificar-cliente?q=${encodeURIComponent(query)}`);
+    if (!resp.ok) {
+      if (resp.status === 401 || resp.status === 403) {
+        statusLabel.textContent = '⚠️ Iniciá sesión en el sistema para consultar.';
+        container.innerHTML = '<div style="text-align:center; padding:15px; color:#b91c1c; font-size:12px;">Debes estar autenticado en el sistema.</div>';
+        return;
+      }
+      throw new Error(`Error ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const clientes = data.clientes || [];
+    statusLabel.textContent = clientes.length ? `${clientes.length} resultado(s)` : 'Sin resultados';
+
+    if (clientes.length === 0) {
+      container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 20px 0;">No se encontró ningún cliente registrado.</div>';
+      return;
+    }
+
+    let html = '';
+    clientes.forEach(c => {
+      const saldoOk = c.saldo_disponible > 0;
+      const saldoCls = saldoOk ? 'badge-ok' : 'badge-limit';
+      const docCls = `doc-${c.estado_documento || 'vigente'}`;
+      const docLabel = (c.estado_documento || 'vigente').replace('_', ' ').toUpperCase();
+
+      let docsExtrasHtml = '';
+      if (c.documentos_adicionales && c.documentos_adicionales.length > 0) {
+        docsExtrasHtml = `<div style="font-size: 10px; color: #4b5563; margin-top: 3px;">
+          📎 Otros doc: ${c.documentos_adicionales.map(d => `${d.tipo} ${d.numero}`).join(', ')}
+        </div>`;
+      }
+
+      // Parámetros para Registro Rápido
+      const params = new URLSearchParams();
+      params.set('doc', c.documento);
+      params.set('nom', c.nombre);
+      if (c.apellido) params.set('ape', c.apellido);
+      if (c.telefono) params.set('tel', c.telefono);
+      const urlRapido = `${BASE_URL}/transacciones/registro-rapido?${params.toString()}`;
+
+      html += `
+        <div class="client-card">
+          <div class="client-header">
+            <span class="client-name">${escapeHtml(c.nombre)} ${escapeHtml(c.apellido || '')}</span>
+            <span class="balance-badge ${saldoCls}">
+              ${c.saldo_disponible.toFixed(2)} € disp.
+            </span>
+          </div>
+          <div class="client-sub">
+            <span>🪪 ${escapeHtml(c.tipo_documento)}: <strong>${escapeHtml(c.documento)}</strong></span>
+            <span class="badge-doc ${docCls}">${docLabel}</span>
+          </div>
+          ${docsExtrasHtml}
+          ${!saldoOk ? `<div style="font-size:11px; color:#b91c1c; margin-top:2px;">⚠️ Límite de ${c.limite_semanal}€ alcanzado. Reestablece en ${c.dias_reestablecimiento} día(s).</div>` : ''}
+          <a href="${urlRapido}" target="_blank" class="btn-send-fast">⚡ Iniciar Registro Rápido</a>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+
+  } catch (err) {
+    statusLabel.textContent = '❌ Error al consultar';
+    container.innerHTML = `<div style="color:#b91c1c; font-size:11px; padding:10px;">${err.message}</div>`;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, m => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[m]);
+}
 
 async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
   btn.disabled = true;
@@ -138,15 +250,14 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
 
       const url = tab.url || '';
 
-      // Detectar URLs donde no se puede inyectar scripts
       if (url.startsWith('about:') || url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://')) {
-        throw new Error('No se puede leer esta pestaña. Probá seleccionando el texto del recibo, copiándolo y usando "Pegar recibo manualmente".');
+        throw new Error('No se puede leer esta pestaña del navegador. Probá seleccionando el texto del recibo y usando "Pegar recibo manualmente".');
       }
 
       let textoContent = '';
       let textoInyectado = '';
 
-      // Intento 1: preguntar al content script (mejor para popups/iframes)
+      // Intento 1: preguntar al content script
       try {
         const resp = await withTimeout(
           new Promise((resolve, reject) => {
@@ -162,9 +273,7 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
           'El content script no respondió'
         );
         if (resp && resp.texto) textoContent = resp.texto;
-      } catch (e) {
-        // Content script no disponible o no respondió
-      }
+      } catch (e) {}
 
       // Intento 2: inyección directa
       if (!textoContent) {
@@ -195,9 +304,7 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
             'La pestaña no respondió a tiempo'
           );
           textoInyectado = results[0]?.result || '';
-        } catch (e) {
-          // Falló inyección
-        }
+        } catch (e) {}
       }
 
       texto = textoContent || textoInyectado;
@@ -206,7 +313,7 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
       }
     }
 
-    status.textContent = 'Analizando...';
+    status.textContent = 'Analizando en el sistema...';
 
     const resp = await fetch(BASE_URL + '/transacciones/api/analizar-recibo', {
       method: 'POST',
@@ -230,6 +337,7 @@ async function enviarRecibo({ modo, texto: textoManual, btn, status }) {
     if (datos.telefono) params.set('tel', datos.telefono);
     if (datos.monto) params.set('mon', String(datos.monto).replace('.', ','));
     if (datos.servicio_hint) params.set('srv', datos.servicio_hint);
+    if (datos.referencia) params.set('ref', datos.referencia);
 
     const url = BASE_URL + '/transacciones/registro-rapido?' + params.toString();
 

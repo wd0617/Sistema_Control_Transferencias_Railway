@@ -1,5 +1,5 @@
 import re
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app.models.cliente import Cliente, Servicio
@@ -408,3 +408,64 @@ def api_analizar_recibo():
     texto = data.get('texto', '')
     resultado = parsear_recibo(texto)
     return resultado
+
+
+@transacciones.route('/api/verificar-cliente')
+@login_required
+def api_verificar_cliente():
+    """AJAX: verifica estado, saldo disponible semanal y vigencia de documento del cliente."""
+    from app.models.documento import DocumentoCliente
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return {'clientes': []}
+
+    like = f'%{q}%'
+    doc_cliente_ids = query_negocio(DocumentoCliente).filter(
+        DocumentoCliente.numero_documento.ilike(like)
+    ).with_entities(DocumentoCliente.cliente_id).subquery()
+
+    clientes = query_negocio(Cliente).filter(
+        or_(
+            Cliente.documento.ilike(like),
+            Cliente.id.in_(doc_cliente_ids),
+            Cliente.nombre.ilike(like),
+            Cliente.apellido.ilike(like),
+            Cliente.telefono.ilike(like)
+        )
+    ).limit(6).all()
+
+    limite = current_app.config.get('LIMITE_TRANSFERENCIA_SEMANAL', 999.0)
+    resultados = []
+    for c in clientes:
+        saldo = c.calcular_saldo_disponible(limite_semanal=limite)
+        dias_rest = c.dias_hasta_reestablecimiento()
+        estado_doc = c.estado_documento
+        dias_venc = c.dias_hasta_vencimiento
+        puede_enviar = (saldo > 0 and estado_doc != 'vencido')
+
+        docs_extras = [{
+            'tipo': d.tipo_documento,
+            'numero': d.numero_documento,
+            'estado': d.estado
+        } for d in c.documentos]
+
+        resultados.append({
+            'id': c.id,
+            'nombre_completo': c.nombre_completo(),
+            'nombre': c.nombre,
+            'apellido': c.apellido,
+            'documento': c.documento,
+            'tipo_documento': c.tipo_documento or 'NIE',
+            'telefono': c.telefono or '',
+            'saldo_disponible': round(max(0.0, saldo), 2),
+            'limite_semanal': limite,
+            'dias_reestablecimiento': dias_rest,
+            'estado_documento': estado_doc,
+            'dias_hasta_vencimiento': dias_venc,
+            'puede_enviar': puede_enviar,
+            'total_transacciones': c.transacciones.count(),
+            'documentos_adicionales': docs_extras
+        })
+
+    return {'clientes': resultados}
+
