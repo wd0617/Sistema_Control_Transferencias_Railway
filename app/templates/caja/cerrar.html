@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Arqueo y Cierre de Caja - Sistema de Transferencias{% endblock %}
+
+{% block content %}
+<div class="container py-3">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- CABECERA -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="h3 fw-bold mb-0"><i class="fas fa-calculator text-danger me-2"></i>Arqueo y Cierre de Turno</h2>
+                    <span class="text-muted">
+                        Sesión abierta el {{ caja.fecha_apertura.strftime('%d/%m/%Y a las %H:%M') }} por <strong>{{ caja.usuario_apertura.nombre or caja.usuario_apertura.username }}</strong>
+                    </span>
+                </div>
+                <a href="{{ url_for('caja.index') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Volver a la Caja
+                </a>
+            </div>
+
+            <!-- RESUMEN CONTABLE -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light py-3">
+                    <h5 class="card-title fw-bold mb-0"><i class="fas fa-file-invoice-dollar me-2 text-primary"></i>Resumen Teórico del Turno</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row g-3 text-center">
+                        <div class="col-6 col-md-2">
+                            <span class="text-muted small text-uppercase d-block">Fondo Inicial</span>
+                            <span class="fw-bold fs-5 text-secondary">{{ resumen.monto_inicial | smart_money }}</span>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <span class="text-muted small text-uppercase d-block">Transferencias</span>
+                            <span class="fw-bold fs-5 text-success">+{{ resumen.total_transferencias | smart_money }}</span>
+                            <small class="d-block text-muted">({{ resumen.conteo_transferencias }} ops)</small>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <span class="text-muted small text-uppercase d-block">Ventas Productos</span>
+                            <span class="fw-bold fs-5 text-info">+{{ resumen.total_ventas | smart_money }}</span>
+                            <small class="d-block text-muted">({{ resumen.conteo_ventas }} ventas)</small>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <span class="text-muted small text-uppercase d-block">Entradas Manuales</span>
+                            <span class="fw-bold fs-5 text-success">+{{ resumen.total_entradas_manuales | smart_money }}</span>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <span class="text-muted small text-uppercase d-block">Salidas Manuales</span>
+                            <span class="fw-bold fs-5 text-danger">-{{ resumen.total_salidas_manuales | smart_money }}</span>
+                        </div>
+                        <div class="col-12 col-md-2 bg-light rounded p-2 border border-primary border-opacity-25">
+                            <span class="text-primary fw-bold small text-uppercase d-block">Efectivo Esperado</span>
+                            <span class="fw-bold fs-4 text-primary" id="valEsperado">{{ resumen.efectivo_esperado | smart_money }}</span>
+                            <input type="hidden" id="rawEsperado" value="{{ resumen.efectivo_esperado }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FORMULARIO DE CIERRE CON CALCULADORA -->
+            <form action="{{ url_for('caja.cerrar') }}" method="POST" id="formCierre">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="row g-4 mb-4">
+                    <!-- CALCULADORA DE CONTEO DE BILLETES Y MONEDAS -->
+                    <div class="col-lg-7">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-light py-3 d-flex justify-content-between align-items-center">
+                                <h5 class="card-title fw-bold mb-0">
+                                    <i class="fas fa-coins me-2 text-warning"></i>Desglose de Efectivo (Calculadora)
+                                </h5>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="limpiarCalculadora()">
+                                    <i class="fas fa-eraser me-1"></i>Limpiar
+                                </button>
+                            </div>
+                            <div class="card-body p-3">
+                                <p class="text-muted small mb-3">
+                                    Cuenta los billetes y monedas en el cajón. El total se calculará automáticamente.
+                                </p>
+                                
+                                <div class="row g-2 mb-3">
+                                    <div class="col-12"><strong class="text-uppercase small text-muted">Billetes</strong></div>
+                                    {% for val in [500, 200, 100, 50, 20, 10, 5] %}
+                                    <div class="col-6 col-sm-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text fw-bold bg-light" style="width: 55px;">{{ val }}€</span>
+                                            <input type="number" min="0" class="form-control text-end calc-input" 
+                                                   data-denominacion="{{ val }}" placeholder="0" oninput="calcularTotalEfectivo()">
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                <div class="row g-2">
+                                    <div class="col-12"><strong class="text-uppercase small text-muted">Monedas</strong></div>
+                                    {% for val in [2, 1, 0.50, 0.20, 0.10, 0.05, 0.02, 0.01] %}
+                                    <div class="col-6 col-sm-4">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light" style="width: 55px;">
+                                                {% if val >= 1 %}{{ val|int }}€{% else %}{{ (val*100)|int }}c{% endif %}
+                                            </span>
+                                            <input type="number" min="0" class="form-control text-end calc-input" 
+                                                   data-denominacion="{{ val }}" placeholder="0" oninput="calcularTotalEfectivo()">
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BALANCE FINAL Y CONFIRMACIÓN -->
+                    <div class="col-lg-5">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-light py-3">
+                                <h5 class="card-title fw-bold mb-0">
+                                    <i class="fas fa-balance-scale me-2 text-primary"></i>Resultado del Arqueo
+                                </h5>
+                            </div>
+                            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                                <div>
+                                    <div class="mb-3">
+                                        <label for="monto_real" class="form-label fw-bold">Efectivo Físico Contado (€) *</label>
+                                        <div class="input-group input-group-lg">
+                                            <span class="input-group-text bg-light"><i class="fas fa-euro-sign"></i></span>
+                                            <input type="number" step="0.01" min="0" class="form-control fw-bold fs-4 text-end" 
+                                                   id="monto_real" name="monto_real" placeholder="0.00" required oninput="actualizarDiferenciaManual()">
+                                        </div>
+                                        <small class="text-muted">Calculado por la mesa de conteo o introducido directamente a mano.</small>
+                                    </div>
+
+                                    <!-- TARJETA DE DIFERENCIA / DESCUADRE -->
+                                    <div class="p-3 rounded mb-3 text-center border" id="boxDiferencia" style="background-color: #f8f9fa;">
+                                        <span class="text-muted small text-uppercase d-block fw-bold">Descuadre / Diferencia</span>
+                                        <h3 class="fw-bold my-1" id="txtDiferencia">0.00 €</h3>
+                                        <span class="badge bg-secondary" id="badgeDiferencia">Introduce el conteo</span>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="notas_cierre" class="form-label">Observaciones o notas de cierre</label>
+                                        <textarea class="form-control" id="notas_cierre" name="notas_cierre" rows="2" 
+                                                  placeholder="Explicación si hay descuadre, destino del dinero, etc..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2 mt-3">
+                                    <button type="submit" class="btn btn-danger btn-lg shadow-sm" id="btnConfirmarCierre">
+                                        <i class="fas fa-lock me-2"></i>Confirmar y Cerrar Caja
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function calcularTotalEfectivo() {
+    let total = 0.0;
+    const inputs = document.querySelectorAll('.calc-input');
+    inputs.forEach(input => {
+        const cantidad = parseFloat(input.value) || 0;
+        const denom = parseFloat(input.dataset.denominacion) || 0;
+        total += cantidad * denom;
+    });
+
+    const montoRealInput = document.getElementById('monto_real');
+    montoRealInput.value = total.toFixed(2);
+    actualizarVisualDiferencia(total);
+}
+
+function actualizarDiferenciaManual() {
+    const montoReal = parseFloat(document.getElementById('monto_real').value) || 0.0;
+    actualizarVisualDiferencia(montoReal);
+}
+
+function actualizarVisualDiferencia(montoReal) {
+    const esperado = parseFloat(document.getElementById('rawEsperado').value) || 0.0;
+    const dif = montoReal - esperado;
+
+    const txtDif = document.getElementById('txtDiferencia');
+    const badgeDif = document.getElementById('badgeDiferencia');
+    const boxDif = document.getElementById('boxDiferencia');
+
+    const difFormatted = (dif >= 0 ? '+' : '') + dif.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    txtDif.innerText = difFormatted;
+
+    if (Math.abs(dif) < 0.01) {
+        txtDif.className = 'fw-bold my-1 text-success';
+        badgeDif.className = 'badge bg-success';
+        badgeDif.innerText = 'Caja Cuadrada Perfecta';
+        boxDif.style.backgroundColor = '#e8f5e9';
+        boxDif.style.borderColor = '#a5d6a7';
+    } else if (dif > 0) {
+        txtDif.className = 'fw-bold my-1 text-primary';
+        badgeDif.className = 'badge bg-primary';
+        badgeDif.innerText = 'Sobrante en caja';
+        boxDif.style.backgroundColor = '#e3f2fd';
+        boxDif.style.borderColor = '#90caf9';
+    } else {
+        txtDif.className = 'fw-bold my-1 text-danger';
+        badgeDif.className = 'badge bg-danger';
+        badgeDif.innerText = 'Faltante en caja';
+        boxDif.style.backgroundColor = '#ffebee';
+        boxDif.style.borderColor = '#ef9a9a';
+    }
+}
+
+function limpiarCalculadora() {
+    document.querySelectorAll('.calc-input').forEach(i => i.value = '');
+    document.getElementById('monto_real').value = '0.00';
+    actualizarVisualDiferencia(0.0);
+}
+
+// Inicializar al cargar
+document.addEventListener('DOMContentLoaded', () => {
+    actualizarVisualDiferencia(0.0);
+});
+</script>
+{% endblock %}

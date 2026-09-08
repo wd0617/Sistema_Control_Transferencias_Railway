@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Cierres de Caja - Sistema de Transferencias{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h3 fw-bold mb-0"><i class="fas fa-history text-secondary me-2"></i>Historial de Cajas</h2>
+            <p class="text-muted mb-0">Registro y auditoría de todas las aperturas y cierres de caja.</p>
+        </div>
+        <a href="{{ url_for('caja.index') }}" class="btn btn-primary">
+            <i class="fas fa-cash-register me-1"></i>Ir al Control de Caja
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if cajas.items %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Apertura</th>
+                            <th>Cierre</th>
+                            <th>Operador</th>
+                            <th class="text-end">Fondo Inicial</th>
+                            <th class="text-end">Efectivo Esperado</th>
+                            <th class="text-end">Efectivo Real</th>
+                            <th class="text-center">Descuadre</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in cajas.items %}
+                        <tr>
+                            <td class="fw-bold">#{{ c.id }}</td>
+                            <td>
+                                <span>{{ c.fecha_apertura.strftime('%d/%m/%Y %H:%M') }}</span>
+                            </td>
+                            <td>
+                                {% if c.fecha_cierre %}
+                                <span>{{ c.fecha_cierre.strftime('%d/%m/%Y %H:%M') }}</span>
+                                {% else %}
+                                <span class="text-muted italic">En curso...</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="d-block">{{ c.usuario_apertura.nombre or c.usuario_apertura.username }}</span>
+                                {% if c.usuario_cierre and c.usuario_cierre.id != c.usuario_apertura.id %}
+                                <small class="text-muted">Cerró: {{ c.usuario_cierre.nombre or c.usuario_cierre.username }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end text-muted">{{ c.monto_inicial | smart_money }}</td>
+                            <td class="text-end">
+                                {% if c.monto_esperado is not none %}
+                                {{ c.monto_esperado | smart_money }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">
+                                {% if c.monto_real is not none %}
+                                {{ c.monto_real | smart_money }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if c.diferencia is not none %}
+                                    {% if c.diferencia|abs < 0.01 %}
+                                    <span class="badge bg-success">0.00 €</span>
+                                    {% elif c.diferencia > 0 %}
+                                    <span class="badge bg-primary">+{{ c.diferencia | smart_money }}</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">{{ c.diferencia | smart_money }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if c.esta_abierta %}
+                                <span class="badge bg-success"><i class="fas fa-circle-notch fa-spin me-1"></i>Abierta</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Cerrada</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('caja.detalle', id=c.id) }}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if not c.esta_abierta %}
+                                <a href="{{ url_for('caja.imprimir', id=c.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Imprimir ticket">
+                                    <i class="fas fa-print"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINACIÓN -->
+            {% if cajas.pages > 1 %}
+            <div class="p-3 d-flex justify-content-center">
+                <nav>
+                    <ul class="pagination mb-0">
+                        {% if cajas.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('caja.historial', page=cajas.prev_num) }}">Anterior</a>
+                        </li>
+                        {% endif %}
+                        {% for p in cajas.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if p %}
+                                {% if p == cajas.page %}
+                                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                                {% else %}
+                                <li class="page-item"><a class="page-link" href="{{ url_for('caja.historial', page=p) }}">{{ p }}</a></li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                        {% endfor %}
+                        {% if cajas.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('caja.historial', page=cajas.next_num) }}">Siguiente</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="p-5 text-center text-muted">
+                <i class="fas fa-history fa-3x mb-3 opacity-50"></i>
+                <h5>No hay registros históricos de caja</h5>
+                <p class="mb-0">Las sesiones cerradas se archivarán aquí automáticamente con su arqueo.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

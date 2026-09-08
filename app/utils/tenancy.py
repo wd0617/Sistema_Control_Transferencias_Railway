@@ -70,9 +70,11 @@ def registrar_listener_tenancy():
     from app.models.transaccion import Transaccion, Notificacion
     from app.models.documento import DocumentoCliente
     from app.models.producto import Producto, MovimientoProducto
+    from app.models.caja import CajaSesion, MovimientoCaja
 
     modelos_tenant = (Cliente, Servicio, Transaccion, Notificacion,
-                      DocumentoCliente, Producto, MovimientoProducto)
+                      DocumentoCliente, Producto, MovimientoProducto,
+                      CajaSesion, MovimientoCaja)
 
     def _estampar_negocio(mapper, connection, target):
         if target.negocio_id is not None:

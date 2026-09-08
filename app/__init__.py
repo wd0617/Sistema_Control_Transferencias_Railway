@@ -50,6 +50,7 @@ def create_app(config_class=Config):
     from app.routes.productos import productos as productos_blueprint
     from app.routes.registro import registro as registro_blueprint
     from app.routes.admin import admin as admin_blueprint
+    from app.routes.caja import caja as caja_blueprint
 
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(main_blueprint)
@@ -63,6 +64,7 @@ def create_app(config_class=Config):
     app.register_blueprint(productos_blueprint, url_prefix='/productos')
     app.register_blueprint(registro_blueprint)
     app.register_blueprint(admin_blueprint, url_prefix='/admin')
+    app.register_blueprint(caja_blueprint, url_prefix='/caja')
 
     # Multitenancy: estampar negocio_id automáticamente al insertar registros
     from app.utils.tenancy import registrar_listener_tenancy
@@ -95,7 +97,8 @@ def create_app(config_class=Config):
                 # Fallback multitenancy: columnas negocio_id / flags de users
                 # (las constraints UNIQUE por negocio solo las crea la migración Alembic)
                 tablas_tenant = ('clientes', 'servicios', 'transacciones', 'documentos_cliente',
-                                 'notificaciones', 'productos', 'movimientos_producto')
+                                 'notificaciones', 'productos', 'movimientos_producto',
+                                 'caja_sesiones', 'movimientos_caja')
                 for tabla in tablas_tenant:
                     if tabla in inspector.get_table_names():
                         cols_t = [c['name'] for c in inspector.get_columns(tabla)]

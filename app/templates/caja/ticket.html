@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cierre de Caja #{{ caja.id }}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            color: #000;
+            background: #f4f4f4;
+            padding: 10px;
+        }
+        .ticket {
+            width: 76mm;
+            max-width: 100%;
+            margin: 0 auto;
+            background: #fff;
+            padding: 12px 8px;
+            border: 1px solid #ccc;
+        }
+        .text-center { text-align: center; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: bold; }
+        .line {
+            border-bottom: 1px dashed #000;
+            margin: 6px 0;
+        }
+        .double-line {
+            border-bottom: 2px solid #000;
+            margin: 8px 0;
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+        .btn-print {
+            display: block;
+            margin: 15px auto;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            background: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .ticket { border: none; width: 100%; padding: 0; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print text-center">
+        <button class="btn-print" onclick="window.print()">🖨️ Imprimir Ticket Térmico</button>
+    </div>
+
+    <div class="ticket">
+        <div class="text-center fw-bold" style="font-size: 14px;">
+            CONTROL DE CAJA
+        </div>
+        <div class="text-center" style="font-size: 11px; margin-top: 2px;">
+            CIERRE DE TURNO #{{ caja.id }}
+        </div>
+        <div class="line"></div>
+
+        <div class="row">
+            <span>Apertura:</span>
+            <span>{{ caja.fecha_apertura.strftime('%d/%m/%Y %H:%M') }}</span>
+        </div>
+        <div class="row">
+            <span>Cierre:</span>
+            <span>{{ caja.fecha_cierre.strftime('%d/%m/%Y %H:%M') if caja.fecha_cierre else 'EN CURSO' }}</span>
+        </div>
+        <div class="row">
+            <span>Operador:</span>
+            <span>{{ caja.usuario_apertura.username }}</span>
+        </div>
+        {% if caja.usuario_cierre and caja.usuario_cierre.id != caja.usuario_apertura.id %}
+        <div class="row">
+            <span>Cerrado por:</span>
+            <span>{{ caja.usuario_cierre.username }}</span>
+        </div>
+        {% endif %}
+
+        <div class="double-line"></div>
+
+        <div class="row">
+            <span>Fondo Inicial:</span>
+            <span>{{ caja.monto_inicial | smart_money }}</span>
+        </div>
+        <div class="row">
+            <span>(+) Transferencias ({{ resumen.conteo_transferencias }}):</span>
+            <span>+{{ resumen.total_transferencias | smart_money }}</span>
+        </div>
+        <div class="row">
+            <span>(+) Ventas prod. ({{ resumen.conteo_ventas }}):</span>
+            <span>+{{ resumen.total_ventas | smart_money }}</span>
+        </div>
+        <div class="row">
+            <span>(+) Entradas manuales:</span>
+            <span>+{{ resumen.total_entradas_manuales | smart_money }}</span>
+        </div>
+        <div class="row">
+            <span>(-) Salidas / Retiros:</span>
+            <span>-{{ resumen.total_salidas_manuales | smart_money }}</span>
+        </div>
+
+        <div class="double-line"></div>
+
+        <div class="row fw-bold">
+            <span>EFECTIVO ESPERADO:</span>
+            <span>{{ (caja.monto_esperado if caja.monto_esperado is not none else resumen.efectivo_esperado) | smart_money }}</span>
+        </div>
+        <div class="row fw-bold">
+            <span>EFECTIVO CONTADO:</span>
+            <span>{{ (caja.monto_real if caja.monto_real is not none else 0.0) | smart_money }}</span>
+        </div>
+
+        <div class="line"></div>
+
+        <div class="row fw-bold" style="font-size: 13px;">
+            <span>DESCUADRE:</span>
+            <span>
+                {% if caja.diferencia is not none %}
+                    {% if caja.diferencia|abs < 0.01 %}
+                        0.00 € (OK)
+                    {% elif caja.diferencia > 0 %}
+                        +{{ caja.diferencia | smart_money }} (SOBRANTE)
+                    {% else %}
+                        {{ caja.diferencia | smart_money }} (FALTANTE)
+                    {% endif %}
+                {% else %}
+                    -
+                {% endif %}
+            </span>
+        </div>
+
+        {% if movimientos %}
+        <div class="double-line"></div>
+        <div class="fw-bold" style="margin-bottom: 4px;">MOVIMIENTOS MANUALES:</div>
+        {% for m in movimientos %}
+        <div class="row" style="font-size: 11px;">
+            <span>{{ m.tipo[:3]|upper }} {{ m.concepto[:18] }}</span>
+            <span>{% if m.tipo == 'entrada' %}+{% else %}-{% endif %}{{ m.monto | smart_money }}</span>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if caja.notas_cierre %}
+        <div class="line"></div>
+        <div style="font-size: 11px; margin-top: 4px;">
+            <span class="fw-bold">Notas:</span> {{ caja.notas_cierre }}
+        </div>
+        {% endif %}
+
+        <div style="margin-top: 25px; text-align: center;">
+            <div style="border-top: 1px solid #000; width: 80%; margin: 0 auto; padding-top: 4px;">
+                Firma del Operador
+            </div>
+        </div>
+    </div>
+</body>
+</html>

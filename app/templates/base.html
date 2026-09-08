@@ -55,6 +55,15 @@
                             <li><a class="dropdown-item" href="{{ url_for('productos.movimientos') }}"><i class="fas fa-history me-2"></i>Historial</a></li>
                         </ul>
                     </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="menuCaja" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-cash-register"></i> Caja
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="menuCaja">
+                            <li><a class="dropdown-item" href="{{ url_for('caja.index') }}"><i class="fas fa-cash-register me-2"></i>Control de Caja</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('caja.historial') }}"><i class="fas fa-history me-2"></i>Historial de Cierres</a></li>
+                        </ul>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('documentos.lista') }}">
                             <i class="fas fa-id-card"></i> Documentos
