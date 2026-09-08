@@ -20,6 +20,21 @@ def login():
         if user and user.check_password(password):
             # Bloquear acceso según estado del negocio y del usuario
             if not user.is_superadmin and user.username != 'admin':
+                # Si el usuario no tiene negocio asignado (usuario previo a multitenancy), asignarle el negocio principal
+                if user.negocio is None:
+                    from app.models.negocio import Negocio
+                    negocio_default = Negocio.query.filter_by(estado='aprobado').order_by(Negocio.id.asc()).first() or Negocio.query.first()
+                    if not negocio_default:
+                        negocio_default = Negocio(
+                            nombre='Negocio principal',
+                            slug='negocio-principal',
+                            estado='aprobado'
+                        )
+                        db.session.add(negocio_default)
+                        db.session.commit()
+                    user.negocio_id = negocio_default.id
+                    db.session.commit()
+
                 estado = user.negocio.estado if user.negocio else None
                 if estado == 'pendiente':
                     flash('Tu solicitud de acceso aún está pendiente de aprobación.', 'warning')
@@ -29,9 +44,6 @@ def login():
                     return render_template('auth/login.html', now=datetime.now())
                 if estado == 'suspendido':
                     flash('Tu negocio está suspendido. Contacta con la plataforma.', 'danger')
-                    return render_template('auth/login.html', now=datetime.now())
-                if user.negocio is None:
-                    flash('Tu usuario no tiene un negocio asignado. Contacta con la plataforma.', 'danger')
                     return render_template('auth/login.html', now=datetime.now())
             if user.activo is False:
                 flash('Tu usuario está desactivado. Contacta con el administrador de tu negocio.', 'danger')

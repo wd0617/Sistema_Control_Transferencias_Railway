@@ -42,6 +42,16 @@ def load_user(user_id):
     # Bloquear usuarios desactivados
     if user.activo is False:
         return None
+    # Si el usuario no tiene negocio asignado, asignarle el negocio por defecto
+    if user.negocio is None:
+        from app.models.negocio import Negocio
+        negocio_default = Negocio.query.filter_by(estado='aprobado').order_by(Negocio.id.asc()).first() or Negocio.query.first()
+        if negocio_default:
+            user.negocio_id = negocio_default.id
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
     # Bloquear usuarios cuyo negocio no esté aprobado
     if user.negocio is None or not user.negocio.esta_aprobado:
         return None

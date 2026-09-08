@@ -112,6 +112,29 @@ def create_app(config_class=Config):
                         conn.execute(text("ALTER TABLE users ADD COLUMN is_superadmin BOOLEAN DEFAULT FALSE"))
                     if 'activo' not in cols_u:
                         conn.execute(text("ALTER TABLE users ADD COLUMN activo BOOLEAN DEFAULT TRUE"))
+
+                # Auto-curación de datos históricos:
+                # Asegurar negocio por defecto y asignar a registros con negocio_id NULL
+                if 'negocios' in inspector.get_table_names():
+                    res = conn.execute(text("SELECT id FROM negocios ORDER BY id ASC LIMIT 1")).first()
+                    if not res:
+                        from datetime import datetime
+                        ahora = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+                        conn.execute(text(
+                            f"INSERT INTO negocios (nombre, slug, estado, created_at, aprobado_at) "
+                            f"VALUES ('Negocio principal', 'negocio-principal', 'aprobado', '{ahora}', '{ahora}')"
+                        ))
+                        res = conn.execute(text("SELECT id FROM negocios ORDER BY id ASC LIMIT 1")).first()
+
+                    if res:
+                        nid = res[0]
+                        if 'users' in inspector.get_table_names():
+                            conn.execute(text(f"UPDATE users SET negocio_id = {nid} WHERE negocio_id IS NULL AND username != 'admin'"))
+
+                        for tabla in ('clientes', 'servicios', 'transacciones', 'documentos_cliente',
+                                      'notificaciones', 'productos', 'movimientos_producto'):
+                            if tabla in inspector.get_table_names():
+                                conn.execute(text(f"UPDATE {tabla} SET negocio_id = {nid} WHERE negocio_id IS NULL"))
         except Exception:
             pass
     
