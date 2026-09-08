@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from app.models.cliente import Cliente, Servicio
 from app.models.transaccion import Transaccion
 from app import db
-from app.utils.tenancy import query_negocio, get_negocio_o_404
+from app.utils.tenancy import query_negocio, get_negocio_o_404, current_negocio_id
 
 clientes = Blueprint('clientes', __name__)
 
@@ -348,9 +348,35 @@ def eliminar_documento_secundario(cliente_id, doc_id):
 @login_required
 def unificar():
     """Herramienta para detectar y fusionar clientes duplicados en un único perfil."""
-    from app.utils.cliente_utils import detectar_posibles_duplicados, fusionar_clientes
+    from app.utils.cliente_utils import (
+        analizar_duplicados_negocio,
+        ejecutar_unificacion_automatica,
+        fusionar_clientes
+    )
     
     if request.method == 'POST':
+        accion = request.form.get('accion')
+        
+        # 1. Unificación automática de alta certeza (nombre + apellido + teléfono + fecha nacimiento)
+        if accion == 'auto_unificar':
+            try:
+                resumen = ejecutar_unificacion_automatica(negocio_id=current_negocio_id(), user_id=current_user.id)
+                if resumen['clientes_fusionados'] > 0:
+                    flash(
+                        f"¡Unificación automática completada con éxito! Se procesaron {resumen['grupos_procesados']} grupo(s) "
+                        f"y se fusionaron {resumen['clientes_fusionados']} perfil(es) duplicado(s) de forma segura.",
+                        'success'
+                    )
+                else:
+                    flash("No se encontraron clientes duplicados con coincidencia exacta de nombre, teléfono y fecha de nacimiento.", 'info')
+                return redirect(url_for('clientes.unificar'))
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f'Error en unificación automática: {e}', exc_info=True)
+                flash(f'Ocurrió un error en la unificación automática: {str(e)}', 'danger')
+                return redirect(url_for('clientes.unificar'))
+
+        # 2. Unificación manual de dos clientes específicos
         maestro_id = request.form.get('cliente_maestro_id', type=int)
         duplicado_id = request.form.get('cliente_duplicado_id', type=int)
         
@@ -375,10 +401,12 @@ def unificar():
             flash(f'Ocurrió un error al unificar clientes: {str(e)}', 'danger')
             return redirect(url_for('clientes.unificar'))
             
-    # GET: Mostrar posibles duplicados y selector
-    grupos_duplicados = detectar_posibles_duplicados()
+    # GET: Analizar duplicados (automáticos de alta certeza vs manuales)
+    analisis = analizar_duplicados_negocio(negocio_id=current_negocio_id())
+    duplicados_automaticos = analisis['automaticos']
+    duplicados_manuales = analisis['manuales']
     
-    # Obtener lista completa de clientes para los selectores
+    # Obtener lista completa de clientes para los selectores manuales
     todos_clientes = query_negocio(Cliente).order_by(Cliente.nombre, Cliente.apellido).all()
 
     # Si vienen IDs por query params (ej. para preseleccionar desde lista)
@@ -388,7 +416,9 @@ def unificar():
     c2 = get_negocio_o_404(Cliente, c2_id) if c2_id else None
     
     return render_template('clientes/unificar.html',
-                           grupos_duplicados=grupos_duplicados,
+                           duplicados_automaticos=duplicados_automaticos,
+                           duplicados_manuales=duplicados_manuales,
+                           grupos_duplicados=duplicados_manuales,
                            todos_clientes=todos_clientes,
                            c1=c1,
                            c2=c2,

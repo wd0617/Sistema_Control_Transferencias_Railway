@@ -32,24 +32,123 @@
     </div>
 </div>
 
-<!-- SECCIÓN 1: Duplicados detectados automáticamente -->
-<div class="card shadow mb-4">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-magic text-primary me-2"></i>Posibles Duplicados Detectados en el Sistema</h5>
-        <span class="badge bg-primary">{{ grupos_duplicados|length }} grupo(s) encontrado(s)</span>
+<!-- SECCIÓN 1: Unificación Automática de Alta Certeza -->
+<div class="card shadow border-success mb-4">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-bolt me-2"></i>Unificación Automática de Alta Certeza
+        </h5>
+        <span class="badge bg-light text-dark fw-bold">{{ duplicados_automaticos|length }} persona(s) lista(s)</span>
     </div>
     <div class="card-body">
-        {% if grupos_duplicados %}
+        <div class="alert alert-light border d-flex align-items-center mb-3">
+            <i class="fas fa-shield-alt fa-2x text-success me-3"></i>
+            <div>
+                <strong>Criterio de Seguridad Infalible:</strong>
+                Se unifican automáticamente solo aquellos perfiles que coinciden al 100% en:
+                <span class="badge bg-success">Mismo Nombre y Apellido</span>
+                <span class="badge bg-success">Mismo Teléfono</span>
+                <span class="badge bg-success">Misma Fecha de Nacimiento</span>.
+                <span class="text-muted d-block mt-1 small">
+                    Si el documento o NIE cambia (ej. renovación o pasaporte), se conserva como documento vinculado del cliente principal.
+                </span>
+            </div>
+        </div>
+
+        {% if duplicados_automaticos %}
+        <div class="table-responsive mb-3">
+            <table class="table table-sm table-hover align-middle border bg-white">
+                <thead class="table-success">
+                    <tr>
+                        <th>Cliente / Persona</th>
+                        <th>Teléfono</th>
+                        <th>Fecha de Nacimiento</th>
+                        <th>Perfil Principal a Conservar</th>
+                        <th>Perfiles Duplicados a Absorber</th>
+                        <th>Documentos a Consolidar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in duplicados_automaticos %}
+                    <tr>
+                        <td>
+                            <strong class="text-primary">{{ g.nombre }}</strong>
+                            <div class="badge bg-dark">{{ g.total_perfiles }} perfiles</div>
+                        </td>
+                        <td><i class="fas fa-phone-alt me-1 text-muted"></i>{{ g.telefono or '-' }}</td>
+                        <td><i class="fas fa-birthday-cake me-1 text-muted"></i>{{ g.fecha_nacimiento.strftime('%d/%m/%Y') if g.fecha_nacimiento else '-' }}</td>
+                        <td>
+                            <span class="badge bg-success">#{{ g.maestro.id }}</span>
+                            <strong>{{ g.maestro.documento }}</strong> ({{ g.maestro.tipo_documento or 'NIE' }})
+                            <div class="small text-muted">{{ g.maestro.transacciones.count() }} transacciones previas</div>
+                        </td>
+                        <td>
+                            {% for d in g.duplicados %}
+                            <div class="small">
+                                <span class="badge bg-secondary">#{{ d.id }}</span>
+                                {{ d.documento }} ({{ d.tipo_documento or 'NIE' }}) — {{ d.transacciones.count() }} tx
+                            </div>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% if g.documentos_a_unir %}
+                                {% for doc in g.documentos_a_unir %}
+                                <span class="badge bg-info text-dark me-1"><i class="fas fa-id-card me-1"></i>{{ doc }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">Mismo documento</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <form method="POST" action="{{ url_for('clientes.unificar') }}" onsubmit="return confirm('¿Confirmas ejecutar la unificación automática de estos {{ duplicados_automaticos|length }} clientes?\n\nTodas las transacciones históricas y documentos se consolidarán de forma segura en el perfil principal.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="accion" value="auto_unificar">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">
+                    <i class="fas fa-check-double text-success me-1"></i>
+                    Operación atómica: nada se pierde y se audita en el historial de actividades.
+                </span>
+                <button type="submit" class="btn btn-success btn-lg fw-bold shadow-sm">
+                    <i class="fas fa-bolt me-2"></i>Ejecutar Unificación Automática ({{ duplicados_automaticos|length }})
+                </button>
+            </div>
+        </form>
+        {% else %}
+        <div class="text-center py-3 text-muted">
+            <i class="fas fa-check-circle fa-3x text-success mb-2"></i>
+            <p class="mb-0 fw-bold">¡Sin duplicados automáticos pendientes!</p>
+            <small>No hay clientes con nombre, teléfono y fecha de nacimiento idénticos sin unificar.</small>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- SECCIÓN 2: Posibles Duplicados que Requieren Verificación Manual -->
+<div class="card shadow mb-4">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-user-shield text-warning me-2"></i>Casos que Requieren Verificación Manual (Diferente Teléfono / Documento)
+        </h5>
+        <span class="badge bg-secondary">{{ duplicados_manuales|length }} caso(s)</span>
+    </div>
+    <div class="card-body">
+        {% if duplicados_manuales %}
         <p class="text-muted small">
-            Se encontraron los siguientes clientes que comparten exactamente el mismo nombre y apellido o el mismo teléfono:
+            Estos perfiles comparten el mismo nombre o teléfono, pero <strong>difieren en teléfono, documento o fecha de nacimiento</strong>. 
+            Por tu seguridad, <strong>no se unifican automáticamente</strong> para evitar mezclar clientes homónimos. Puedes revisarlos y unirlos manualmente con el asistente:
         </p>
         <div class="accordion" id="accordionDuplicados">
-            {% for grupo in grupos_duplicados %}
+            {% for grupo in duplicados_manuales %}
             <div class="accordion-item mb-2 border">
                 <h2 class="accordion-header" id="heading{{ loop.index }}">
                     <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}">
                         <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                        <strong>{{ grupo.criterio }}</strong> — {{ grupo.clientes|length }} perfiles encontrados
+                        <strong>{{ grupo.criterio }}</strong> — {{ grupo.clientes|length }} perfiles
                     </button>
                 </h2>
                 <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#accordionDuplicados">
@@ -62,6 +161,7 @@
                                         <th>Nombre y Apellido</th>
                                         <th>Documento</th>
                                         <th>Teléfono</th>
+                                        <th>Fecha Nacimiento</th>
                                         <th>Transacciones</th>
                                         <th>Última Visita</th>
                                         <th class="text-center">Acción</th>
@@ -80,8 +180,9 @@
                                             {% endif %}
                                         </td>
                                         <td>{{ c.telefono or '-' }}</td>
+                                        <td>{{ c.fecha_nacimiento.strftime('%d/%m/%Y') if c.fecha_nacimiento else '-' }}</td>
                                         <td>
-                                            <span class="badge bg-secondary">{{ c.transacciones.count() }} transacciones</span>
+                                            <span class="badge bg-secondary">{{ c.transacciones.count() }} tx</span>
                                         </td>
                                         <td>{{ c.ultima_visita.strftime('%d/%m/%Y %H:%M') if c.ultima_visita else '-' }}</td>
                                         <td class="text-center">
@@ -108,8 +209,7 @@
         {% else %}
         <div class="text-center py-4 text-muted">
             <i class="fas fa-check-circle fa-3x text-success mb-2"></i>
-            <p class="mb-0">¡Excelente! No se detectaron coincidencias automáticas de nombre o teléfono.</p>
-            <small>Si sabes de dos clientes con nombres ligeramente distintos o pasaporte nuevo, selecciónalos abajo en el asistente manual.</small>
+            <p class="mb-0">¡Excelente! No hay casos dudosos que requieran revisión manual.</p>
         </div>
         {% endif %}
     </div>

@@ -16,6 +16,8 @@ from app.utils.cliente_utils import (
     obtener_o_crear_cliente_con_documento,
     fusionar_clientes,
     detectar_posibles_duplicados,
+    analizar_duplicados_negocio,
+    ejecutar_unificacion_automatica,
     _crear_documento_cliente
 )
 
@@ -254,6 +256,177 @@ class ClientesUnificacionTestCase(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             fusionar_clientes(c_alfa, c_beta)
+
+    def test_analisis_alta_certeza_vs_manual(self):
+        """
+        Verifica que:
+        - Mismo nombre, apellido, teléfono y fecha de nacimiento -> grupo AUTOMÁTICO (alta certeza).
+        - Mismo nombre y apellido pero diferente teléfono/fecha -> grupo MANUAL.
+        """
+        self._login()
+
+        # Grupo 1: Alta certeza (Juan Perez con NIE y con Pasaporte, mismo teléfono y fecha)
+        c1 = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Juan',
+            apellido='Perez',
+            documento='NIE-AUTO-1',
+            telefono='+34 611 222 333',
+            fecha_nacimiento=date(1988, 4, 12)
+        )
+        c2 = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Juan',
+            apellido='Perez',
+            documento='PAS-AUTO-2',
+            tipo_documento='PASAPORTE',
+            telefono='611222333',  # Mismo teléfono normalizado
+            fecha_nacimiento=date(1988, 4, 12)
+        )
+
+        # Grupo 2: Homónimos o dudosos (Roberto Gomez con diferente teléfono)
+        m1 = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Roberto',
+            apellido='Gomez',
+            documento='NIE-MAN-1',
+            telefono='600111111',
+            fecha_nacimiento=date(1975, 1, 1)
+        )
+        m2 = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Roberto',
+            apellido='Gomez',
+            documento='DNI-MAN-2',
+            telefono='600999999',  # Diferente teléfono
+            fecha_nacimiento=date(1975, 1, 1)
+        )
+
+        db.session.add_all([c1, c2, m1, m2])
+        db.session.commit()
+
+        analisis = analizar_duplicados_negocio(self.negocio.id)
+        automaticos = analisis['automaticos']
+        manuales = analisis['manuales']
+
+        # Verificar grupo automático
+        self.assertEqual(len(automaticos), 1)
+        self.assertEqual(automaticos[0]['nombre'], 'Juan Perez')
+        self.assertEqual(automaticos[0]['total_perfiles'], 2)
+        ids_auto = [automaticos[0]['maestro'].id] + [d.id for d in automaticos[0]['duplicados']]
+        self.assertIn(c1.id, ids_auto)
+        self.assertIn(c2.id, ids_auto)
+
+        # Verificar grupo manual
+        self.assertGreaterEqual(len(manuales), 1)
+        # Roberto Gomez debe estar en manuales
+        ids_manuales = [c.id for g in manuales for c in g['clientes']]
+        self.assertIn(m1.id, ids_manuales)
+        self.assertIn(m2.id, ids_manuales)
+        # c1 y c2 no deben estar en manuales porque ya son automáticos
+        self.assertNotIn(c1.id, ids_manuales)
+        self.assertNotIn(c2.id, ids_manuales)
+
+    def test_ejecutar_unificacion_automatica_en_bloque(self):
+        """Verifica que ejecutar_unificacion_automatica fusione clientes de alta certeza sin tocar manuales."""
+        self._login()
+
+        # Crear clientes de alta certeza con transacciones
+        maestro = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Laura',
+            apellido='Sanchez',
+            documento='NIE-LAURA-1',
+            telefono='+34677889900',
+            fecha_nacimiento=date(1992, 7, 20)
+        )
+        duplicado = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Laura',
+            apellido='Sanchez',
+            documento='PAS-LAURA-2',
+            tipo_documento='PASAPORTE',
+            telefono='677889900',
+            fecha_nacimiento=date(1992, 7, 20)
+        )
+        db.session.add_all([maestro, duplicado])
+        db.session.commit()
+
+        # 2 transacciones en maestro y 1 en duplicado
+        tx_m1 = Transaccion(
+            negocio_id=self.negocio.id,
+            cliente_id=maestro.id,
+            servicio_id=self.servicio.id,
+            monto=100.0,
+            comision=5.0
+        )
+        tx_m2 = Transaccion(
+            negocio_id=self.negocio.id,
+            cliente_id=maestro.id,
+            servicio_id=self.servicio.id,
+            monto=200.0,
+            comision=10.0
+        )
+        tx_dup = Transaccion(
+            negocio_id=self.negocio.id,
+            cliente_id=duplicado.id,
+            servicio_id=self.servicio.id,
+            monto=300.0,
+            comision=15.0
+        )
+        db.session.add_all([tx_m1, tx_m2, tx_dup])
+        db.session.commit()
+
+        dup_id = duplicado.id
+        maestro_id = maestro.id
+
+        # Ejecutar unificación automática
+        resumen = ejecutar_unificacion_automatica(self.negocio.id, user_id=self.user.id)
+        self.assertEqual(resumen['grupos_procesados'], 1)
+        self.assertEqual(resumen['clientes_fusionados'], 1)
+
+        # El duplicado debe haberse eliminado
+        self.assertIsNone(db.session.get(Cliente, dup_id))
+
+        # La transacción debe haber pasado al maestro
+        tx_actualizada = db.session.get(Transaccion, tx_dup.id)
+        self.assertEqual(tx_actualizada.cliente_id, maestro_id)
+
+        # El pasaporte debe haberse registrado en DocumentoCliente
+        doc_vinculado = DocumentoCliente.query.filter_by(cliente_id=maestro_id, numero_documento='PAS-LAURA-2').first()
+        self.assertIsNotNone(doc_vinculado)
+
+    def test_ruta_post_auto_unificar(self):
+        """Verifica que el endpoint POST /clientes/unificar con accion=auto_unificar funcione vía HTTP."""
+        self._login()
+
+        c1 = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Elena',
+            apellido='Torres',
+            documento='DNI-ELENA-1',
+            telefono='622334455',
+            fecha_nacimiento=date(1987, 3, 10)
+        )
+        c2 = Cliente(
+            negocio_id=self.negocio.id,
+            nombre='Elena',
+            apellido='Torres',
+            documento='PAS-ELENA-2',
+            tipo_documento='PASAPORTE',
+            telefono='+34 622 334 455',
+            fecha_nacimiento=date(1987, 3, 10)
+        )
+        db.session.add_all([c1, c2])
+        db.session.commit()
+
+        resp = self.client.post('/clientes/unificar', data={'accion': 'auto_unificar'}, follow_redirects=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('Unificación automática completada con éxito'.encode('utf-8'), resp.data)
+
+        # Uno de los dos debe existir y el otro eliminarse
+        clientes_restantes = Cliente.query.filter(Cliente.nombre == 'Elena', Cliente.apellido == 'Torres').all()
+        self.assertEqual(len(clientes_restantes), 1)
 
 
 if __name__ == '__main__':

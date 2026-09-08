@@ -323,52 +323,199 @@ def fusionar_clientes(cliente_maestro, cliente_duplicado, user_id=None):
     return True
 
 
-def detectar_posibles_duplicados():
+def _normalizar_telefono(tel):
+    """Extrae solo dígitos significativos para comparar teléfonos."""
+    if not tel:
+        return ''
+    digitos = ''.join(ch for ch in str(tel) if ch.isdigit())
+    if not digitos:
+        return ''
+    if digitos.startswith('00'):
+        digitos = digitos[2:]
+    if len(digitos) > 9:
+        if digitos.startswith('34') and len(digitos) == 11:
+            digitos = digitos[2:]
+        elif digitos.startswith('39') and len(digitos) in (12, 11):
+            digitos = digitos[2:]
+    return digitos
+
+
+def analizar_duplicados_negocio(negocio_id=None):
     """
-    Busca dentro del negocio actual posibles clientes duplicados
-    basándose en coincidencia de (nombre + apellido) o teléfono idéntico.
-    Retorna una lista de grupos de duplicados detectados.
-    """
-    todos = query_negocio(Cliente).order_by(Cliente.id).all()
+    Analiza todos los clientes del negocio y los clasifica en dos categorías:
     
-    por_nombre = {}
+    1. AUTOMÁTICOS (Alta Certeza):
+       - Mismo nombre y apellido
+       - Mismo teléfono normalizado (>= 7 dígitos)
+       - Misma fecha de nacimiento (no nula)
+       (Imposible equivocarse de cliente, se pueden unificar automáticamente).
+       
+    2. MANUALES (Revisión requerida):
+       - Mismo nombre y apellido pero diferente teléfono, o teléfono/nacimiento faltante
+       - Mismo teléfono pero diferente nombre
+       (El operador debe verificar manualmente para no cometer errores).
+    """
+    if negocio_id is not None:
+        todos = Cliente.query.filter_by(negocio_id=negocio_id).order_by(Cliente.id).all()
+    else:
+        todos = query_negocio(Cliente).order_by(Cliente.id).all()
+
+    por_nombre_completo = {}
     por_telefono = {}
 
     for c in todos:
-        # Clave nombre + apellido normalizados
-        key_nombre = (_normalizar(c.nombre), _normalizar(c.apellido))
-        if key_nombre[0] and key_nombre[1]:
-            por_nombre.setdefault(key_nombre, []).append(c)
+        nom = _normalizar(c.nombre)
+        ape = _normalizar(c.apellido)
+        if nom and ape:
+            por_nombre_completo.setdefault((nom, ape), []).append(c)
 
-        # Clave teléfono (solo dígitos, mínimo 7 dígitos)
-        if c.telefono:
-            tel_digitos = ''.join(ch for ch in c.telefono if ch.isdigit())
-            if len(tel_digitos) >= 7:
-                por_telefono.setdefault(tel_digitos, []).append(c)
+        tel = _normalizar_telefono(c.telefono)
+        if len(tel) >= 7:
+            por_telefono.setdefault(tel, []).append(c)
 
-    grupos = []
-    ids_procesados = set()
+    automaticos = []
+    manuales = []
+    ids_en_automaticos = set()
+    ids_procesados_manuales = set()
 
-    # Grupos por nombre y apellido
-    for (nom, ape), clientes in por_nombre.items():
-        if len(clientes) > 1:
-            grupo_ids = tuple(sorted(c.id for c in clientes))
-            if grupo_ids not in ids_procesados:
-                ids_procesados.add(grupo_ids)
-                grupos.append({
-                    'criterio': f"Mismo nombre y apellido ({clientes[0].nombre_completo()})",
-                    'clientes': clientes
+    # 1. Analizar coincidencias por nombre y apellido
+    for (nom, ape), clientes in por_nombre_completo.items():
+        if len(clientes) < 2:
+            continue
+
+        # Sub-agrupar por (telefono_normalizado, fecha_nacimiento)
+        subgrupos_alta_certeza = {}
+        for c in clientes:
+            tel = _normalizar_telefono(c.telefono)
+            fn = c.fecha_nacimiento
+            if len(tel) >= 7 and fn is not None:
+                subgrupos_alta_certeza.setdefault((tel, fn), []).append(c)
+
+        clientes_en_auto_este_grupo = set()
+        for (tel, fn), sub_clientes in subgrupos_alta_certeza.items():
+            if len(sub_clientes) > 1:
+                # Elegir al mejor maestro:
+                # 1. Mayor cantidad de transacciones
+                # 2. Con más documentos registrados
+                # 3. ID más bajo (más antiguo)
+                sub_clientes_ordenados = sorted(
+                    sub_clientes,
+                    key=lambda x: (x.transacciones.count(), x.documentos.count(), -x.id),
+                    reverse=True
+                )
+                maestro = sub_clientes_ordenados[0]
+                duplicados = sub_clientes_ordenados[1:]
+                
+                docs_a_unir = []
+                for d in duplicados:
+                    if d.documento and d.documento.strip().upper() != maestro.documento.strip().upper():
+                        docs_a_unir.append(f"{d.tipo_documento}: {d.documento}")
+
+                automaticos.append({
+                    'maestro': maestro,
+                    'duplicados': duplicados,
+                    'nombre': maestro.nombre_completo(),
+                    'telefono': maestro.telefono,
+                    'fecha_nacimiento': maestro.fecha_nacimiento,
+                    'documentos_a_unir': docs_a_unir,
+                    'total_perfiles': len(sub_clientes)
                 })
 
-    # Grupos por teléfono
+                for sc in sub_clientes:
+                    ids_en_automaticos.add(sc.id)
+                    clientes_en_auto_este_grupo.add(sc.id)
+
+        # Los restantes que no tienen certeza total quedan para revisión manual
+        clientes_restantes = [c for c in clientes if c.id not in clientes_en_auto_este_grupo]
+        if len(clientes_restantes) > 1:
+            clave_ids = tuple(sorted(c.id for c in clientes_restantes))
+            if clave_ids not in ids_procesados_manuales:
+                ids_procesados_manuales.add(clave_ids)
+                manuales.append({
+                    'criterio': f"Mismo nombre y apellido con diferente teléfono o documento ({clientes_restantes[0].nombre_completo()})",
+                    'tipo': 'nombre_similar',
+                    'clientes': clientes_restantes
+                })
+
+    # 2. Analizar coincidencias por teléfono donde los nombres no coincidan exactamente
     for tel, clientes in por_telefono.items():
         if len(clientes) > 1:
-            grupo_ids = tuple(sorted(c.id for c in clientes))
-            if grupo_ids not in ids_procesados:
-                ids_procesados.add(grupo_ids)
-                grupos.append({
-                    'criterio': f"Mismo teléfono ({clientes[0].telefono})",
-                    'clientes': clientes
-                })
+            clientes_libres = [c for c in clientes if c.id not in ids_en_automaticos]
+            if len(clientes_libres) > 1:
+                clave_ids = tuple(sorted(c.id for c in clientes_libres))
+                if clave_ids not in ids_procesados_manuales:
+                    ids_procesados_manuales.add(clave_ids)
+                    manuales.append({
+                        'criterio': f"Mismo teléfono con nombres diferentes ({clientes_libres[0].telefono})",
+                        'tipo': 'telefono_comun',
+                        'clientes': clientes_libres
+                    })
 
+    return {
+        'automaticos': automaticos,
+        'manuales': manuales
+    }
+
+
+def ejecutar_unificacion_automatica(negocio_id=None, user_id=None):
+    """
+    Ejecuta en bloque la unificación de todos los clientes con alta certeza:
+    - Mismo nombre y apellido
+    - Mismo teléfono
+    - Misma fecha de nacimiento
+    Consolida todos los documentos y transacciones en el perfil maestro.
+    """
+    analisis = analizar_duplicados_negocio(negocio_id=negocio_id)
+    grupos_auto = analisis['automaticos']
+
+    resumen = {
+        'grupos_procesados': 0,
+        'clientes_fusionados': 0,
+        'documentos_consolidados': 0,
+        'detalles': []
+    }
+
+    for g in grupos_auto:
+        maestro_id = g['maestro'].id
+        duplicado_ids = [d.id for d in g['duplicados']]
+
+        maestro_actual = Cliente.query.get(maestro_id)
+        if not maestro_actual:
+            continue
+
+        fusionados_en_grupo = 0
+        for dup_id in duplicado_ids:
+            dup_actual = Cliente.query.get(dup_id)
+            if not dup_actual or dup_actual.id == maestro_actual.id:
+                continue
+            
+            fusionar_clientes(maestro_actual, dup_actual, user_id=user_id)
+            fusionados_en_grupo += 1
+            resumen['clientes_fusionados'] += 1
+            resumen['documentos_consolidados'] += 1
+
+        if fusionados_en_grupo > 0:
+            resumen['grupos_procesados'] += 1
+            resumen['detalles'].append({
+                'maestro': maestro_actual.nombre_completo(),
+                'maestro_id': maestro_actual.id,
+                'documento_principal': maestro_actual.documento,
+                'cantidad_fusionados': fusionados_en_grupo
+            })
+
+    return resumen
+
+
+def detectar_posibles_duplicados():
+    """Devuelve todos los grupos de posibles duplicados (tanto automáticos como manuales) para compatibilidad."""
+    analisis = analizar_duplicados_negocio()
+    grupos = []
+    for a in analisis['automaticos']:
+        todos_perfiles = [a['maestro']] + a['duplicados']
+        grupos.append({
+            'criterio': f"Coincidencia exacta de nombre, teléfono y fecha de nacimiento ({a['nombre']})",
+            'tipo': 'alta_certeza',
+            'clientes': todos_perfiles
+        })
+    grupos.extend(analisis['manuales'])
     return grupos
